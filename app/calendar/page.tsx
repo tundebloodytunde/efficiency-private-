@@ -40,10 +40,10 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
         <div className="grid grid-cols-7 text-center mb-4">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-sm font-semibold text-gray-400 py-2">{day}</div>
+            <div key={day} className="text-sm font-semibold text-gray-400 dark:text-gray-500 py-2">{day}</div>
           ))}
         </div>
 
@@ -57,15 +57,15 @@ export default function CalendarPage() {
                 key={i}
                 className={`rounded-xl min-h-[80px] p-2 transition-all ${
                   valid
-                    ? 'border border-gray-100 hover:border-blue-300 hover:bg-blue-50 cursor-pointer'
-                    : 'bg-gray-50'
+                    ? 'border border-gray-100 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 cursor-pointer'
+                    : 'bg-gray-50 dark:bg-gray-900/30'
                 }`}
               >
                 {valid && (
                   <span className={`text-sm font-semibold flex items-center justify-center w-7 h-7 rounded-full ml-auto ${
                     isToday(dayNumber)
                       ? 'bg-blue-600 text-white'
-                      : 'text-gray-500'
+                      : 'text-gray-500 dark:text-gray-400'
                   }`}>
                     {dayNumber}
                   </span>

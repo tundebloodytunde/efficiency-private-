@@ -133,36 +133,36 @@ export default function TodayPage() {
         </button>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 mb-8 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 mb-8 shadow-sm">
         <div className="flex justify-between items-center mb-3">
-          <h2 className="text-lg font-semibold text-gray-700">Daily Brief</h2>
+          <h2 className="text-lg font-semibold text-gray-700 dark:text-gray-200">Daily Brief</h2>
           <button
             onClick={generateBrief}
             disabled={briefLoading}
-            className="text-sm bg-gray-900 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-700 transition disabled:opacity-50"
+            className="text-sm bg-gray-900 dark:bg-gray-600 text-white px-4 py-2 rounded-xl font-medium hover:bg-gray-700 dark:hover:bg-gray-500 transition disabled:opacity-50"
           >
             {briefLoading ? 'Thinking...' : 'Generate'}
           </button>
         </div>
         {brief ? (
-          <p className="text-gray-700 leading-relaxed whitespace-pre-line">{brief}</p>
+          <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">{brief}</p>
         ) : (
-          <p className="text-gray-400 text-sm">Hit Generate to get an AI-powered summary of your day.</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm">Hit Generate to get an AI-powered summary of your day.</p>
         )}
       </div>
 
       <div className="space-y-4">
         {tasks.length === 0 ? (
-          <div className="bg-white rounded-3xl p-12 text-center">
-            <p className="text-2xl text-gray-400">No pending tasks</p>
-            <p className="text-gray-500 mt-2">Add some to get started</p>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-12 text-center">
+            <p className="text-2xl text-gray-400 dark:text-gray-500">No pending tasks</p>
+            <p className="text-gray-500 dark:text-gray-400 mt-2">Add some to get started</p>
           </div>
         ) : (
           tasks.map(task => (
-            <div key={task.id} className="bg-white rounded-2xl px-6 py-5 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
+            <div key={task.id} className="bg-white dark:bg-gray-800 rounded-2xl px-6 py-5 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
               <div>
-                <div className="font-semibold text-lg">{task.title}</div>
-                <div className="text-sm text-gray-500 mt-0.5">
+                <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">{task.title}</div>
+                <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
                   {task.category} · {priorityLabel(task.priority)} priority · {task.estimated_minutes} min
                 </div>
               </div>
@@ -179,8 +179,8 @@ export default function TodayPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-white rounded-3xl p-8 w-full max-w-md">
-            <h3 className="text-2xl font-semibold mb-6">New Task</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 w-full max-w-md">
+            <h3 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-gray-100">New Task</h3>
 
             <form onSubmit={createTask} className="space-y-5">
               <input
@@ -188,18 +188,18 @@ export default function TodayPage() {
                 placeholder="What needs to be done?"
                 value={newTask.title}
                 onChange={e => setNewTask({ ...newTask, title: e.target.value })}
-                className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-blue-400"
+                className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-blue-400"
                 required
                 autoFocus
               />
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">Category</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Category</label>
                   <select
                     value={newTask.category}
                     onChange={e => setNewTask({ ...newTask, category: e.target.value })}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
+                    className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
                   >
                     <option value="clinical">Clinical</option>
                     <option value="or">OR</option>
@@ -209,13 +209,13 @@ export default function TodayPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 mb-1">Time (min)</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Time (min)</label>
                   <input
                     type="number"
                     min={5}
                     value={newTask.estimated_minutes}
                     onChange={e => setNewTask({ ...newTask, estimated_minutes: parseInt(e.target.value) || 30 })}
-                    className="w-full border-2 border-gray-200 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
+                    className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
                   />
                 </div>
               </div>
@@ -226,7 +226,7 @@ export default function TodayPage() {
                 <button
                   type="button"
                   onClick={resetModal}
-                  className="flex-1 py-3 border-2 border-gray-200 rounded-xl font-semibold hover:bg-gray-50 transition"
+                  className="flex-1 py-3 border-2 border-gray-200 dark:border-gray-600 dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition"
                 >
                   Cancel
                 </button>
