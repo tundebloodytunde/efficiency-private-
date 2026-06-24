@@ -25,7 +25,11 @@ export default function TodayPage() {
     try {
       const res = await fetch('/api/todoist');
       const data = await res.json();
-      setTasks(Array.isArray(data) ? data : []);
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayTasks = Array.isArray(data)
+        ? data.filter((t: Task) => t.due?.date?.startsWith(todayStr))
+        : [];
+      setTasks(todayTasks);
     } catch {
       setTasks([]);
     }
