@@ -1,101 +1,69 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabaseClient';
 
 interface Task {
-  id: number;
-  title: string;
-  category: string;
+  id: string;
+  content: string;
   priority: number;
-  estimated_minutes: number;
-  status: string;
+  due?: { date: string; string: string } | null;
+  labels: string[];
+  description: string;
 }
-
-const MOCK_TASKS: Task[] = [
-  { id: 1, title: "Pre-op AAA review", category: "clinical", priority: 1, estimated_minutes: 60, status: "pending" },
-  { id: 2, title: "Follow up labs", category: "practice", priority: 2, estimated_minutes: 30, status: "pending" },
-];
 
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isMockMode, setIsMockMode] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState('');
   const [brief, setBrief] = useState('');
   const [briefLoading, setBriefLoading] = useState(false);
-  const [newTask, setNewTask] = useState({
-    title: '',
-    category: 'clinical',
-    priority: 3,
-    estimated_minutes: 30,
-  });
+  const [newTask, setNewTask] = useState({ content: '', priority: 1, due_string: '' });
 
   async function loadTasks() {
-    const { data, error } = await supabase
-      .from('tasks')
-      .select('*')
-      .eq('status', 'pending')
-      .order('priority', { ascending: false });
-
-    if (error) {
-      setIsMockMode(true);
-      setTasks(MOCK_TASKS);
-    } else {
-      setIsMockMode(false);
-      setTasks(data ?? []);
+    setLoading(true);
+    try {
+      const res = await fetch('/api/todoist');
+      const data = await res.json();
+      setTasks(Array.isArray(data) ? data : []);
+    } catch {
+      setTasks([]);
     }
     setLoading(false);
   }
 
   useEffect(() => { loadTasks(); }, []);
 
-  async function markDone(id: number) {
-    if (isMockMode) {
-      setTasks(prev => prev.filter(t => t.id !== id));
-      return;
-    }
-    await supabase.from('tasks').update({ status: 'done' }).eq('id', id);
-    loadTasks();
+  async function markDone(taskId: string) {
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    await fetch('/api/todoist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'complete', taskId }),
+    });
   }
 
   async function createTask(e: React.FormEvent) {
     e.preventDefault();
     setFormError('');
-    if (!newTask.title.trim()) return;
-
-    if (isMockMode) {
-      const mockNew: Task = {
-        id: Date.now(),
-        ...newTask,
-        status: 'pending',
-      };
-      setTasks(prev => [...prev, mockNew]);
-      resetModal();
+    if (!newTask.content.trim()) return;
+    const res = await fetch('/api/todoist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'create', ...newTask }),
+    });
+    if (!res.ok) {
+      setFormError('Failed to create task.');
       return;
     }
-
-    const { error } = await supabase.from('tasks').insert([{
-      title: newTask.title,
-      category: newTask.category,
-      priority: newTask.priority,
-      estimated_minutes: newTask.estimated_minutes,
-      status: 'pending',
-    }]);
-
-    if (error) {
-      setFormError('Failed to create task. Please try again.');
-    } else {
-      resetModal();
-      loadTasks();
-    }
+    resetModal();
+    loadTasks();
   }
 
   function resetModal() {
     setShowModal(false);
     setFormError('');
-    setNewTask({ title: '', category: 'clinical', priority: 3, estimated_minutes: 30 });
+    setNewTask({ content: '', priority: 1, due_string: '' });
   }
 
   async function generateBrief() {
@@ -106,12 +74,18 @@ export default function TodayPage() {
       const data = await res.json();
       setBrief(data.brief || data.error || 'No response received.');
     } catch {
-      setBrief('Failed to generate brief. Check your API key.');
+      setBrief('Failed to generate brief.');
     }
     setBriefLoading(false);
   }
 
-  const priorityLabel = (p: number) => ({ 1: 'High', 2: 'Medium', 3: 'Low' }[p] ?? 'Low');
+  const priorityLabel = (p: number) => ({ 4: 'Urgent', 3: 'High', 2: 'Medium', 1: 'Low' }[p] ?? 'Low');
+  const priorityColor = (p: number) => ({
+    4: 'text-red-500',
+    3: 'text-orange-500',
+    2: 'text-yellow-500',
+    1: 'text-gray-400 dark:text-gray-500',
+  }[p] ?? 'text-gray-400');
 
   if (loading) return <div className="py-20 text-center text-xl text-gray-400">Loading your day...</div>;
 
@@ -120,10 +94,7 @@ export default function TodayPage() {
       <div className="flex justify-between items-center mb-10">
         <div>
           <h1 className="text-5xl font-bold tracking-tight">Today</h1>
-          <p className="text-gray-500 mt-1">
-            Focus on what matters
-            {isMockMode && <span className="ml-2 text-xs text-amber-500">(offline mode)</span>}
-          </p>
+          <p className="text-gray-500 dark:text-gray-400 mt-1">Focus on what matters</p>
         </div>
         <button
           onClick={() => setShowModal(true)}
@@ -160,10 +131,20 @@ export default function TodayPage() {
         ) : (
           tasks.map(task => (
             <div key={task.id} className="bg-white dark:bg-gray-800 rounded-2xl px-6 py-5 flex justify-between items-center shadow-sm hover:shadow-md transition-all">
-              <div>
-                <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">{task.title}</div>
-                <div className="text-sm text-gray-500 dark:text-gray-400 mt-0.5">
-                  {task.category} · {priorityLabel(task.priority)} priority · {task.estimated_minutes} min
+              <div className="flex-1 min-w-0 mr-4">
+                <div className="font-semibold text-lg text-gray-900 dark:text-gray-100">{task.content}</div>
+                <div className="flex items-center gap-3 mt-0.5">
+                  <span className={`text-sm font-medium ${priorityColor(task.priority)}`}>
+                    {priorityLabel(task.priority)}
+                  </span>
+                  {task.due && (
+                    <span className="text-sm text-gray-400 dark:text-gray-500">
+                      due {task.due.string}
+                    </span>
+                  )}
+                  {task.description && (
+                    <span className="text-sm text-gray-400 dark:text-gray-500 truncate">{task.description}</span>
+                  )}
                 </div>
               </div>
               <button
@@ -186,8 +167,8 @@ export default function TodayPage() {
               <input
                 type="text"
                 placeholder="What needs to be done?"
-                value={newTask.title}
-                onChange={e => setNewTask({ ...newTask, title: e.target.value })}
+                value={newTask.content}
+                onChange={e => setNewTask({ ...newTask, content: e.target.value })}
                 className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-4 py-3 text-base focus:outline-none focus:border-blue-400"
                 required
                 autoFocus
@@ -195,27 +176,27 @@ export default function TodayPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Category</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Priority</label>
                   <select
-                    value={newTask.category}
-                    onChange={e => setNewTask({ ...newTask, category: e.target.value })}
+                    value={newTask.priority}
+                    onChange={e => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
                     className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
                   >
-                    <option value="clinical">Clinical</option>
-                    <option value="or">OR</option>
-                    <option value="practice">Practice</option>
-                    <option value="admin">Admin</option>
+                    <option value={4}>Urgent</option>
+                    <option value={3}>High</option>
+                    <option value={2}>Medium</option>
+                    <option value={1}>Low</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Time (min)</label>
+                  <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Due (optional)</label>
                   <input
-                    type="number"
-                    min={5}
-                    value={newTask.estimated_minutes}
-                    onChange={e => setNewTask({ ...newTask, estimated_minutes: parseInt(e.target.value) || 30 })}
-                    className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
+                    type="text"
+                    placeholder="e.g. today, tomorrow"
+                    value={newTask.due_string}
+                    onChange={e => setNewTask({ ...newTask, due_string: e.target.value })}
+                    className="w-full border-2 border-gray-200 dark:border-gray-600 dark:bg-gray-700 dark:text-gray-100 dark:placeholder-gray-400 rounded-xl px-4 py-3 focus:outline-none focus:border-blue-400"
                   />
                 </div>
               </div>
