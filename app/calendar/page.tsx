@@ -77,35 +77,35 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-10">
-        <h1 className="text-5xl font-bold tracking-tight">Calendar</h1>
-        <div className="flex items-center gap-4">
+      <div className="flex justify-between items-center gap-3 mb-6 sm:mb-10">
+        <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">Calendar</h1>
+        <div className="flex items-center gap-2 sm:gap-4">
           <button
             onClick={() => setCurrentDate(new Date(year, month - 1))}
-            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            className="px-3 sm:px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-sm sm:text-base"
           >
-            ← Prev
+            ←
           </button>
-          <span className="text-xl font-semibold min-w-[200px] text-center">
+          <span className="text-sm sm:text-xl font-semibold text-center whitespace-nowrap">
             {monthName} {year}
           </span>
           <button
             onClick={() => setCurrentDate(new Date(year, month + 1))}
-            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+            className="px-3 sm:px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition text-sm sm:text-base"
           >
-            Next →
+            →
           </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
+      <div className="bg-white dark:bg-gray-800 rounded-3xl p-3 sm:p-6 shadow-sm">
         <div className="grid grid-cols-7 text-center mb-4">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className="text-sm font-semibold text-gray-400 dark:text-gray-500 py-2">{day}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1 sm:gap-2">
           {Array.from({ length: totalCells }).map((_, i) => {
             const dayNumber = i - firstDayOfMonth + 1;
             const valid = dayNumber >= 1 && dayNumber <= daysInMonth;
@@ -122,7 +122,7 @@ export default function CalendarPage() {
               <div
                 key={i}
                 onClick={() => valid && hasItems && setSelected({ day: dayNumber, tasks: dayTasks, events: dayEvents })}
-                className={`rounded-xl min-h-[80px] p-2 transition-all ${
+                className={`rounded-xl min-h-[56px] sm:min-h-[80px] p-1 sm:p-2 transition-all ${
                   valid
                     ? `border border-gray-100 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${hasItems ? 'cursor-pointer' : ''}`
                     : 'bg-gray-50 dark:bg-gray-900/30'
@@ -130,7 +130,7 @@ export default function CalendarPage() {
               >
                 {valid && (
                   <>
-                    <span className={`text-sm font-semibold flex items-center justify-center w-7 h-7 rounded-full ml-auto ${
+                    <span className={`text-xs sm:text-sm font-semibold flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 rounded-full ml-auto ${
                       isToday(dayNumber)
                         ? 'bg-blue-600 text-white'
                         : 'text-gray-500 dark:text-gray-400'
@@ -167,7 +167,7 @@ export default function CalendarPage() {
       </div>
 
       {/* Legend */}
-      <div className="mt-4 flex items-center gap-5 text-sm text-gray-500 dark:text-gray-400">
+      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-5 text-sm text-gray-500 dark:text-gray-400">
         <div className="flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-sm bg-red-500 inline-block" />Urgent
         </div>
@@ -187,7 +187,7 @@ export default function CalendarPage() {
 
       {selected && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 sm:p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
             <h3 className="text-2xl font-semibold mb-5 text-gray-900 dark:text-gray-100">
               {monthName} {selected.day}
             </h3>

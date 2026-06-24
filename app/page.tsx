@@ -2,8 +2,8 @@ import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-center justify-center py-32 text-center">
-      <h1 className="text-6xl font-bold mb-4 tracking-tight">Efficiency</h1>
+    <div className="flex flex-col items-center justify-center py-16 sm:py-32 text-center">
+      <h1 className="text-4xl sm:text-6xl font-bold mb-4 tracking-tight">Efficiency</h1>
       <p className="text-xl text-gray-500 mb-10">Work better, every day.</p>
       <Link
         href="/today"

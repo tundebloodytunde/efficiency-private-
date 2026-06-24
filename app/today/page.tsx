@@ -95,9 +95,9 @@ export default function TodayPage() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-10">
+      <div className="flex justify-between items-center mb-6 sm:mb-10">
         <div>
-          <h1 className="text-5xl font-bold tracking-tight">Today</h1>
+          <h1 className="text-3xl sm:text-5xl font-bold tracking-tight">Today</h1>
           <p className="text-gray-500 dark:text-gray-400 mt-1">Focus on what matters</p>
         </div>
         <button
@@ -164,7 +164,7 @@ export default function TodayPage() {
 
       {showModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4">
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 w-full max-w-md">
+          <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 sm:p-8 w-full max-w-md">
             <h3 className="text-2xl font-semibold mb-6 text-gray-900 dark:text-gray-100">New Task</h3>
 
             <form onSubmit={createTask} className="space-y-5">
@@ -178,7 +178,7 @@ export default function TodayPage() {
                 autoFocus
               />
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm text-gray-500 dark:text-gray-400 mb-1">Priority</label>
                   <select

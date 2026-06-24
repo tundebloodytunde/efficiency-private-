@@ -8,6 +8,14 @@ body {
   line-height: 1.6;
 }
 
+nav {
+  padding-top: env(safe-area-inset-top);
+}
+
+main {
+  padding-bottom: max(env(safe-area-inset-bottom), 1.5rem);
+}
+
 h1, h2 {
   font-weight: 700;
 }
