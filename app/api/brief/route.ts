@@ -31,7 +31,7 @@ export async function POST() {
   }
 
   const today = new Date();
-  const todayStr = today.toISOString().slice(0, 10);
+  const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD in ET
 
   // Fetch Todoist tasks due today
   const todoistRes = await fetch('https://api.todoist.com/api/v1/tasks?limit=50', {

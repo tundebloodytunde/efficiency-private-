@@ -25,7 +25,7 @@ export default function TodayPage() {
     try {
       const res = await fetch('/api/todoist');
       const data = await res.json();
-      const todayStr = new Date().toISOString().slice(0, 10);
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
       const todayTasks = Array.isArray(data)
         ? data.filter((t: Task) => t.due?.date?.startsWith(todayStr))
         : [];
