@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
 
 interface Task {
   id: string;
@@ -10,12 +9,13 @@ interface Task {
   due?: { date: string } | null;
 }
 
-interface GCalEvent {
+interface CalEvent {
   id: string;
-  summary?: string;
-  start: { date?: string; dateTime?: string };
-  end: { date?: string; dateTime?: string };
-  colorId?: string;
+  title: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  calendar?: string;
 }
 
 const taskPriorityColor = (p: number) => ({
@@ -26,11 +26,10 @@ const taskPriorityColor = (p: number) => ({
 }[p] ?? 'bg-blue-400');
 
 export default function CalendarPage() {
-  const { data: session } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [events, setEvents] = useState<GCalEvent[]>([]);
-  const [selected, setSelected] = useState<{ day: number; tasks: Task[]; events: GCalEvent[] } | null>(null);
+  const [events, setEvents] = useState<CalEvent[]>([]);
+  const [selected, setSelected] = useState<{ day: number; tasks: Task[]; events: CalEvent[] } | null>(null);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
@@ -47,78 +46,47 @@ export default function CalendarPage() {
     fetch('/api/todoist')
       .then(r => r.json())
       .then(data => setTasks(Array.isArray(data) ? data : []));
-  }, []);
-
-  useEffect(() => {
-    if (!session) return;
-    const accessToken = (session as { accessToken?: string }).accessToken;
-    if (!accessToken) return;
-    fetch('/api/gcal', { headers: { 'x-access-token': accessToken } })
+    fetch('/api/ical')
       .then(r => r.json())
       .then(data => setEvents(Array.isArray(data) ? data : []));
-  }, [session]);
+  }, []);
 
   function dateStrForDay(day: number) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
   function tasksForDay(day: number): Task[] {
-    const dateStr = dateStrForDay(day);
-    return tasks.filter(t => t.due?.date?.startsWith(dateStr));
+    return tasks.filter(t => t.due?.date?.startsWith(dateStrForDay(day)));
   }
 
-  function eventsForDay(day: number): GCalEvent[] {
-    const dateStr = dateStrForDay(day);
-    return events.filter(e => {
-      const d = e.start.date ?? e.start.dateTime ?? '';
-      return d.startsWith(dateStr);
-    });
+  function eventsForDay(day: number): CalEvent[] {
+    return events.filter(e => e.start.startsWith(dateStrForDay(day)));
   }
 
-  function formatTime(e: GCalEvent) {
-    if (e.start.dateTime) {
-      return new Date(e.start.dateTime).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    }
-    return 'All day';
+  function formatTime(e: CalEvent) {
+    if (e.allDay) return 'All day';
+    return new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
   return (
     <>
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-5xl font-bold tracking-tight">Calendar</h1>
-        <div className="flex items-center gap-3">
-          {session ? (
-            <button
-              onClick={() => signOut()}
-              className="text-sm px-4 py-2 border dark:border-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-            >
-              Disconnect Google
-            </button>
-          ) : (
-            <button
-              onClick={() => signIn('google')}
-              className="text-sm bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition"
-            >
-              Connect Google Calendar
-            </button>
-          )}
-        </div>
-      </div>
-
       <div className="flex justify-between items-center mb-8">
-        <button
-          onClick={() => setCurrentDate(new Date(year, month - 1))}
-          className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-        >
-          ← Prev
-        </button>
-        <span className="text-xl font-semibold">{monthName} {year}</span>
-        <button
-          onClick={() => setCurrentDate(new Date(year, month + 1))}
-          className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-        >
-          Next →
-        </button>
+        <h1 className="text-5xl font-bold tracking-tight">Calendar</h1>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setCurrentDate(new Date(year, month - 1))}
+            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
+            ← Prev
+          </button>
+          <span className="text-xl font-semibold min-w-[180px] text-center">{monthName} {year}</span>
+          <button
+            onClick={() => setCurrentDate(new Date(year, month + 1))}
+            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
+          >
+            Next →
+          </button>
+        </div>
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
@@ -156,7 +124,7 @@ export default function CalendarPage() {
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
                         <div key={e.id} className="text-white text-xs rounded px-1.5 py-0.5 truncate bg-green-500">
-                          {e.summary ?? 'Event'}
+                          {e.title}
                         </div>
                       ))}
                       {dayTasks.slice(0, 2).map(task => (
@@ -179,7 +147,7 @@ export default function CalendarPage() {
       </div>
 
       <div className="flex items-center gap-4 mt-4 px-2 text-xs text-gray-500 dark:text-gray-400">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> Google Calendar</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> iCloud</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Urgent</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block" /> High</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /> Medium</span>
@@ -194,13 +162,13 @@ export default function CalendarPage() {
             </h3>
             {selected.events.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Google Calendar</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">iCloud Calendar</p>
                 <div className="space-y-2">
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
                       <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
                       <div>
-                        <span className="text-gray-800 dark:text-gray-200">{e.summary ?? 'Event'}</span>
+                        <span className="text-gray-800 dark:text-gray-200">{e.title}</span>
                         <span className="text-xs text-gray-400 ml-2">{formatTime(e)}</span>
                       </div>
                     </div>
