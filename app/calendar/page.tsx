@@ -97,7 +97,7 @@ export default function CalendarPage() {
             Calendar
           </h1>
           {session ? (
-            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
+            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-xl transition">
               Disconnect Google
             </button>
           ) : (
@@ -108,17 +108,17 @@ export default function CalendarPage() {
         </div>
 
         <div className="flex items-center justify-between">
-          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/20 rounded-xl transition">
             ← Prev
           </button>
-          <span className="text-xl font-bold text-white">{monthName} {year}</span>
-          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
+          <span className="text-xl font-bold text-gray-900 dark:text-white">{monthName} {year}</span>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/20 rounded-xl transition">
             Next →
           </button>
         </div>
       </div>
 
-      <div className="bg-white/5 border border-white/10 rounded-3xl p-4">
+      <div className="bg-gray-50 border border-gray-100 dark:bg-white/5 dark:border-white/10 rounded-3xl p-4 transition-colors duration-200">
         <div className="grid grid-cols-7 text-center mb-3">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
             <div key={day} className="text-xs font-semibold text-gray-500 py-2 uppercase tracking-wide">{day}</div>
@@ -139,14 +139,14 @@ export default function CalendarPage() {
                 onClick={() => valid && hasItems && setSelected({ day: dayNumber, tasks: dayTasks, events: dayEvents })}
                 className={`rounded-xl min-h-[72px] p-1.5 transition-all ${
                   valid
-                    ? `border hover:border-violet-500/40 hover:bg-violet-500/5 ${hasItems ? 'cursor-pointer' : ''} ${isToday(dayNumber) ? 'border-violet-500/40 bg-violet-500/10' : 'border-white/5'}`
+                    ? `border hover:border-violet-500/40 hover:bg-violet-500/5 ${hasItems ? 'cursor-pointer' : ''} ${isToday(dayNumber) ? 'border-violet-500/40 bg-violet-500/10' : 'border-gray-100 dark:border-white/5'}`
                     : 'opacity-0'
                 }`}
               >
                 {valid && (
                   <>
                     <span className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ml-auto ${
-                      isToday(dayNumber) ? 'bg-violet-500 text-white' : 'text-gray-400'
+                      isToday(dayNumber) ? 'bg-violet-500 text-white' : 'text-gray-500 dark:text-gray-400'
                     }`}>
                       {dayNumber}
                     </span>
@@ -173,7 +173,7 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500">
+      <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500 dark:text-gray-500">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> iCloud</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Google</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Urgent</span>
@@ -183,8 +183,8 @@ export default function CalendarPage() {
 
       {selected && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
-          <div className="bg-gray-900 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-bold mb-5 text-white">{monthName} {selected.day}</h3>
+          <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl transition-colors duration-200" onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-5 text-gray-900 dark:text-white">{monthName} {selected.day}</h3>
             {selected.events.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Calendar</p>
@@ -192,7 +192,7 @@ export default function CalendarPage() {
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                      <span className="text-gray-200">{e.title}</span>
+                      <span className="text-gray-700 dark:text-gray-200">{e.title}</span>
                       <span className="text-xs text-gray-500 ml-auto">{formatTime(e)}</span>
                     </div>
                   ))}
@@ -206,13 +206,13 @@ export default function CalendarPage() {
                   {selected.tasks.map(task => (
                     <div key={task.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${taskPriorityColor(task.priority)}`} />
-                      <span className="text-gray-200">{task.content}</span>
+                      <span className="text-gray-700 dark:text-gray-200">{task.content}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <button onClick={() => setSelected(null)} className="mt-6 w-full py-3 border border-white/10 rounded-xl font-semibold text-gray-400 hover:text-white hover:border-white/20 transition">
+            <button onClick={() => setSelected(null)} className="mt-6 w-full py-3 border border-gray-200 dark:border-white/10 rounded-xl font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 dark:text-gray-400 dark:hover:text-white dark:hover:border-white/20 transition">
               Close
             </button>
           </div>
