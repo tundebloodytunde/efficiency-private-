@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Navigation from "@/components/Navigation";
 import AuthSessionProvider from "@/components/SessionProvider";
 import QuickCapture from "@/components/QuickCapture";
+import PushNotifications from "@/components/PushNotifications";
 
 export const metadata: Metadata = {
   title: "Efficiency",
@@ -16,7 +17,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en">
       <head>
-        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');` }} />
+        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/push-sw.js');` }} />
       </head>
       <body className="bg-gray-950 text-white min-h-screen">
         <AuthSessionProvider>
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <QuickCapture />
+          <PushNotifications />
         </AuthSessionProvider>
       </body>
     </html>
