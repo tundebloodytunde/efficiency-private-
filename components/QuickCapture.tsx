@@ -39,18 +39,20 @@ export default function QuickCapture() {
 
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
+    if (!SR) return;
     const recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
     recognition.continuous = false;
+    recognition.maxAlternatives = 1;
 
     recognition.onresult = (e: SpeechRecognitionEvent) => {
-      const transcript = Array.from(e.results)
-        .map(r => r[0].transcript)
-        .join('');
+      let transcript = '';
+      for (let i = 0; i < e.results.length; i++) {
+        transcript += e.results[i][0].transcript;
+      }
       setContent(transcript);
     };
-
 
     recognition.onend = () => {
       setListening(false);
@@ -58,7 +60,8 @@ export default function QuickCapture() {
       inputRef.current?.focus();
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
+      console.error('Speech recognition error:', e.error);
       setListening(false);
       recognitionRef.current = null;
     };
