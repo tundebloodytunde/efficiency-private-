@@ -9,7 +9,7 @@ export default function Home() {
       <h1 className="text-7xl font-black tracking-tight mb-4 bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
         Efficiency
       </h1>
-      <p className="text-xl text-gray-500 mb-12 max-w-sm">
+      <p className="text-xl text-gray-500 dark:text-gray-500 mb-12 max-w-sm">
         Your tasks, calendar, and daily brief — all in one place.
       </p>
       <Link

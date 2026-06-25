@@ -56,16 +56,16 @@ export default function QuickCapture() {
       {open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 px-4 pb-6 sm:pb-0"
           onClick={e => e.target === e.currentTarget && setOpen(false)}>
-          <div className="bg-gray-900 border border-white/10 rounded-3xl p-6 w-full max-w-lg shadow-2xl">
+          <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-white/10 rounded-3xl p-6 w-full max-w-lg shadow-2xl transition-colors duration-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="font-bold text-white">Quick Capture</h3>
-              <span className="text-xs text-gray-600 hidden sm:block">⌘K to toggle</span>
+              <h3 className="font-bold text-gray-900 dark:text-white">Quick Capture</h3>
+              <span className="text-xs text-gray-400 hidden sm:block">⌘K to toggle</span>
             </div>
 
             {saved ? (
               <div className="py-8 text-center">
                 <div className="text-4xl mb-2">✅</div>
-                <p className="text-green-400 font-semibold">Task added to Todoist</p>
+                <p className="text-green-500 font-semibold">Task added to Todoist</p>
               </div>
             ) : (
               <form onSubmit={submit} className="space-y-3">
@@ -75,14 +75,14 @@ export default function QuickCapture() {
                   placeholder="What's on your mind?"
                   value={content}
                   onChange={e => setContent(e.target.value)}
-                  className="w-full bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition text-lg"
+                  className="w-full bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition text-lg"
                   required
                 />
                 <div className="flex gap-3">
                   <select
                     value={priority}
                     onChange={e => setPriority(parseInt(e.target.value))}
-                    className="flex-1 bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none transition"
+                    className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm focus:outline-none transition"
                   >
                     <option value={4}>🔴 Urgent</option>
                     <option value={3}>🟠 High</option>
@@ -94,12 +94,12 @@ export default function QuickCapture() {
                     placeholder="Due: today, tomorrow..."
                     value={due}
                     onChange={e => setDue(e.target.value)}
-                    className="flex-1 bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-3 py-2.5 text-white text-sm placeholder-gray-500 focus:outline-none transition"
+                    className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                   />
                 </div>
                 <div className="flex gap-3 pt-1">
                   <button type="button" onClick={() => setOpen(false)}
-                    className="flex-1 py-2.5 border border-white/10 rounded-xl text-gray-400 hover:text-white hover:border-white/20 transition text-sm font-medium">
+                    className="flex-1 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-500 hover:text-gray-900 hover:border-gray-300 dark:text-gray-400 dark:hover:text-white dark:hover:border-white/20 transition text-sm font-medium">
                     Cancel
                   </button>
                   <button type="submit" disabled={saving}
