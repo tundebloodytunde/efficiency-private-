@@ -11,6 +11,32 @@ function urlBase64ToUint8Array(base64String: string) {
   return new Uint8Array([...rawData].map(c => c.charCodeAt(0)));
 }
 
+// Schedule browser notifications for time-specific tasks today
+async function scheduleLocalAlerts() {
+  if (Notification.permission !== 'granted') return;
+  const res = await fetch('/api/todoist');
+  const tasks = await res.json();
+  if (!Array.isArray(tasks)) return;
+
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+  const now = Date.now();
+
+  tasks.forEach((t: { content: string; due?: { date: string } }) => {
+    if (!t.due?.date || t.due.date.length === 10) return; // skip date-only
+    if (!t.due.date.startsWith(todayStr)) return;
+    const dueMs = new Date(t.due.date).getTime();
+    const alertMs = dueMs - 10 * 60 * 1000; // 10 min before
+    if (alertMs <= now) return;
+
+    setTimeout(() => {
+      new Notification('Efficiency — Task Due Soon', {
+        body: `${t.content} is due in 10 minutes`,
+        icon: '/icon-192.png',
+      });
+    }, alertMs - now);
+  });
+}
+
 export default function PushNotifications() {
   const [status, setStatus] = useState<'unknown' | 'granted' | 'denied' | 'unsupported'>('unknown');
   const [shown, setShown] = useState(false);
@@ -21,10 +47,13 @@ export default function PushNotifications() {
       return;
     }
     const perm = Notification.permission;
-    if (perm === 'granted') { subscribe(); setStatus('granted'); }
-    else if (perm === 'denied') setStatus('denied');
-    else {
-      // Show prompt after 3s if not yet asked
+    if (perm === 'granted') {
+      setStatus('granted');
+      subscribe();
+      scheduleLocalAlerts();
+    } else if (perm === 'denied') {
+      setStatus('denied');
+    } else {
       const t = setTimeout(() => setShown(true), 3000);
       return () => clearTimeout(t);
     }
@@ -52,7 +81,10 @@ export default function PushNotifications() {
     setShown(false);
     const perm = await Notification.requestPermission();
     setStatus(perm === 'granted' ? 'granted' : 'denied');
-    if (perm === 'granted') subscribe();
+    if (perm === 'granted') {
+      subscribe();
+      scheduleLocalAlerts();
+    }
   }
 
   if (!shown || status !== 'unknown') return null;
@@ -64,16 +96,10 @@ export default function PushNotifications() {
         <p className="text-sm font-semibold text-white">Enable alerts?</p>
         <p className="text-xs text-gray-400 mt-0.5">Get notified when tasks are due.</p>
         <div className="flex gap-2 mt-3">
-          <button
-            onClick={requestPermission}
-            className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white text-xs py-1.5 rounded-lg font-semibold hover:opacity-90 transition"
-          >
+          <button onClick={requestPermission} className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white text-xs py-1.5 rounded-lg font-semibold hover:opacity-90 transition">
             Enable
           </button>
-          <button
-            onClick={() => setShown(false)}
-            className="flex-1 border border-white/10 text-gray-400 text-xs py-1.5 rounded-lg hover:text-white transition"
-          >
+          <button onClick={() => setShown(false)} className="flex-1 border border-white/10 text-gray-400 text-xs py-1.5 rounded-lg hover:text-white transition">
             Not now
           </button>
         </div>
