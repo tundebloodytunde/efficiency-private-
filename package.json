@@ -12,6 +12,7 @@
     "@anthropic-ai/sdk": "^0.105.0",
     "@supabase/supabase-js": "^2.108.2",
     "next": "^15",
+    "next-auth": "^4.24.14",
     "next-pwa": "^5.6.0",
     "react": "19.2.4",
     "react-dom": "19.2.4"

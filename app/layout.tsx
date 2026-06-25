@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import Navigation from "@/components/Navigation";
+import AuthSessionProvider from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "Efficiency - Work Better",
@@ -27,10 +28,12 @@ export default function RootLayout({
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js');` }} />
       </head>
       <body className="bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 min-h-screen">
-        <Navigation />
-        <main className="max-w-5xl mx-auto px-6 py-10">
-          {children}
-        </main>
+        <AuthSessionProvider>
+          <Navigation />
+          <main className="max-w-5xl mx-auto px-6 py-10">
+            {children}
+          </main>
+        </AuthSessionProvider>
       </body>
     </html>
   );
