@@ -2,6 +2,7 @@ import "./globals.css";
 import type { Metadata } from "next";
 import Navigation from "@/components/Navigation";
 import AuthSessionProvider from "@/components/SessionProvider";
+import QuickCapture from "@/components/QuickCapture";
 
 export const metadata: Metadata = {
   title: "Efficiency",
@@ -23,6 +24,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <main className="max-w-4xl mx-auto px-6 py-10">
             {children}
           </main>
+          <QuickCapture />
         </AuthSessionProvider>
       </body>
     </html>
