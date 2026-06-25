@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { useSession, signIn, signOut } from 'next-auth/react';
 
 interface Task {
   id: string;
@@ -16,6 +17,7 @@ interface CalEvent {
   end: string;
   allDay: boolean;
   calendar?: string;
+  source?: string;
 }
 
 const taskPriorityColor = (p: number) => ({
@@ -26,6 +28,7 @@ const taskPriorityColor = (p: number) => ({
 }[p] ?? 'bg-blue-400');
 
 export default function CalendarPage() {
+  const { data: session } = useSession();
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
@@ -48,8 +51,33 @@ export default function CalendarPage() {
       .then(data => setTasks(Array.isArray(data) ? data : []));
     fetch('/api/ical')
       .then(r => r.json())
-      .then(data => setEvents(Array.isArray(data) ? data : []));
+      .then(data => setEvents(prev => [
+        ...prev.filter(e => e.source !== 'icloud'),
+        ...(Array.isArray(data) ? data.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
+      ]));
   }, []);
+
+  useEffect(() => {
+    const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+    if (!accessToken) return;
+    fetch('/api/gcal', { headers: { 'x-access-token': accessToken } })
+      .then(r => r.json())
+      .then(data => {
+        if (!Array.isArray(data)) return;
+        const gcalEvents: CalEvent[] = data.map((e: { id: string; summary?: string; start: { date?: string; dateTime?: string }; end: { date?: string; dateTime?: string } }) => ({
+          id: e.id,
+          title: e.summary ?? 'Event',
+          start: e.start.dateTime ?? e.start.date ?? '',
+          end: e.end.dateTime ?? e.end.date ?? '',
+          allDay: !e.start.dateTime,
+          source: 'google',
+        }));
+        setEvents(prev => [
+          ...prev.filter(e => e.source !== 'google'),
+          ...gcalEvents,
+        ]);
+      });
+  }, [session]);
 
   function dateStrForDay(day: number) {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -72,6 +100,17 @@ export default function CalendarPage() {
     <>
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-5xl font-bold tracking-tight">Calendar</h1>
+        <div className="flex items-center gap-3">
+          {session ? (
+            <button onClick={() => signOut()} className="text-sm px-4 py-2 border dark:border-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+              Disconnect Google
+            </button>
+          ) : (
+            <button onClick={() => signIn('google')} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">
+              + Google Calendar
+            </button>
+          )}
+        </div>
         <div className="flex items-center gap-4">
           <button
             onClick={() => setCurrentDate(new Date(year, month - 1))}
@@ -123,7 +162,7 @@ export default function CalendarPage() {
                     </span>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
-                        <div key={e.id} className="text-white text-xs rounded px-1.5 py-0.5 truncate bg-green-500">
+                        <div key={e.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate ${e.source === 'google' ? 'bg-blue-500' : 'bg-green-500'}`}>
                           {e.title}
                         </div>
                       ))}
@@ -148,6 +187,7 @@ export default function CalendarPage() {
 
       <div className="flex items-center gap-4 mt-4 px-2 text-xs text-gray-500 dark:text-gray-400">
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> iCloud</span>
+        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> Google</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Urgent</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block" /> High</span>
         <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /> Medium</span>
@@ -162,11 +202,11 @@ export default function CalendarPage() {
             </h3>
             {selected.events.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">iCloud Calendar</p>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Calendar Events</p>
                 <div className="space-y-2">
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
-                      <div className="w-2.5 h-2.5 rounded-full bg-green-500 shrink-0" />
+                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-green-500'}`} />
                       <div>
                         <span className="text-gray-800 dark:text-gray-200">{e.title}</span>
                         <span className="text-xs text-gray-400 ml-2">{formatTime(e)}</span>
