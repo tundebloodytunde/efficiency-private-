@@ -46,15 +46,13 @@ export default function CalendarPage() {
     day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
   useEffect(() => {
-    fetch('/api/todoist')
-      .then(r => r.json())
-      .then(data => setTasks(Array.isArray(data) ? data : []));
-    fetch('/api/ical')
-      .then(r => r.json())
-      .then(data => setEvents(prev => [
+    fetch('/api/todoist').then(r => r.json()).then(data => setTasks(Array.isArray(data) ? data : []));
+    fetch('/api/ical').then(r => r.json()).then(data =>
+      setEvents(prev => [
         ...prev.filter(e => e.source !== 'icloud'),
         ...(Array.isArray(data) ? data.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
-      ]));
+      ])
+    );
   }, []);
 
   useEffect(() => {
@@ -65,17 +63,12 @@ export default function CalendarPage() {
       .then(data => {
         if (!Array.isArray(data)) return;
         const gcalEvents: CalEvent[] = data.map((e: { id: string; summary?: string; start: { date?: string; dateTime?: string }; end: { date?: string; dateTime?: string } }) => ({
-          id: e.id,
-          title: e.summary ?? 'Event',
+          id: e.id, title: e.summary ?? 'Event',
           start: e.start.dateTime ?? e.start.date ?? '',
           end: e.end.dateTime ?? e.end.date ?? '',
-          allDay: !e.start.dateTime,
-          source: 'google',
+          allDay: !e.start.dateTime, source: 'google',
         }));
-        setEvents(prev => [
-          ...prev.filter(e => e.source !== 'google'),
-          ...gcalEvents,
-        ]);
+        setEvents(prev => [...prev.filter(e => e.source !== 'google'), ...gcalEvents]);
       });
   }, [session]);
 
@@ -83,11 +76,11 @@ export default function CalendarPage() {
     return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
   }
 
-  function tasksForDay(day: number): Task[] {
+  function tasksForDay(day: number) {
     return tasks.filter(t => t.due?.date?.startsWith(dateStrForDay(day)));
   }
 
-  function eventsForDay(day: number): CalEvent[] {
+  function eventsForDay(day: number) {
     return events.filter(e => e.start.startsWith(dateStrForDay(day)));
   }
 
@@ -98,44 +91,41 @@ export default function CalendarPage() {
 
   return (
     <>
-      <div className="flex justify-between items-center mb-8">
-        <h1 className="text-5xl font-bold tracking-tight">Calendar</h1>
-        <div className="flex items-center gap-3">
+      <div className="mb-8">
+        <div className="flex justify-between items-end mb-6">
+          <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+            Calendar
+          </h1>
           {session ? (
-            <button onClick={() => signOut()} className="text-sm px-4 py-2 border dark:border-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition">
+            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
               Disconnect Google
             </button>
           ) : (
-            <button onClick={() => signIn('google')} className="text-sm bg-blue-600 text-white px-4 py-2 rounded-xl hover:bg-blue-700 transition">
+            <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
               + Google Calendar
             </button>
           )}
         </div>
-        <div className="flex items-center gap-4">
-          <button
-            onClick={() => setCurrentDate(new Date(year, month - 1))}
-            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-          >
+
+        <div className="flex items-center justify-between">
+          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
             ← Prev
           </button>
-          <span className="text-xl font-semibold min-w-[180px] text-center">{monthName} {year}</span>
-          <button
-            onClick={() => setCurrentDate(new Date(year, month + 1))}
-            className="px-5 py-2 border dark:border-gray-600 dark:text-gray-200 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-700 transition"
-          >
+          <span className="text-xl font-bold text-white">{monthName} {year}</span>
+          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="px-4 py-2 border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
             Next →
           </button>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-sm">
-        <div className="grid grid-cols-7 text-center mb-4">
+      <div className="bg-white/5 border border-white/10 rounded-3xl p-4">
+        <div className="grid grid-cols-7 text-center mb-3">
           {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-sm font-semibold text-gray-400 dark:text-gray-500 py-2">{day}</div>
+            <div key={day} className="text-xs font-semibold text-gray-500 py-2 uppercase tracking-wide">{day}</div>
           ))}
         </div>
 
-        <div className="grid grid-cols-7 gap-2">
+        <div className="grid grid-cols-7 gap-1.5">
           {Array.from({ length: totalCells }).map((_, i) => {
             const dayNumber = i - firstDayOfMonth + 1;
             const valid = dayNumber >= 1 && dayNumber <= daysInMonth;
@@ -147,34 +137,32 @@ export default function CalendarPage() {
               <div
                 key={i}
                 onClick={() => valid && hasItems && setSelected({ day: dayNumber, tasks: dayTasks, events: dayEvents })}
-                className={`rounded-xl min-h-[80px] p-2 transition-all ${
+                className={`rounded-xl min-h-[72px] p-1.5 transition-all ${
                   valid
-                    ? `border border-gray-100 dark:border-gray-700 hover:border-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900/20 ${hasItems ? 'cursor-pointer' : ''}`
-                    : 'bg-gray-50 dark:bg-gray-900/30'
+                    ? `border hover:border-violet-500/40 hover:bg-violet-500/5 ${hasItems ? 'cursor-pointer' : ''} ${isToday(dayNumber) ? 'border-violet-500/40 bg-violet-500/10' : 'border-white/5'}`
+                    : 'opacity-0'
                 }`}
               >
                 {valid && (
                   <>
-                    <span className={`text-sm font-semibold flex items-center justify-center w-7 h-7 rounded-full ml-auto ${
-                      isToday(dayNumber) ? 'bg-blue-600 text-white' : 'text-gray-500 dark:text-gray-400'
+                    <span className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ml-auto ${
+                      isToday(dayNumber) ? 'bg-violet-500 text-white' : 'text-gray-400'
                     }`}>
                       {dayNumber}
                     </span>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
-                        <div key={e.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate ${e.source === 'google' ? 'bg-blue-500' : 'bg-green-500'}`}>
+                        <div key={e.id} className={`text-white text-xs rounded-md px-1.5 py-0.5 truncate ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
                           {e.title}
                         </div>
                       ))}
                       {dayTasks.slice(0, 2).map(task => (
-                        <div key={task.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate ${taskPriorityColor(task.priority)}`}>
+                        <div key={task.id} className={`text-white text-xs rounded-md px-1.5 py-0.5 truncate ${taskPriorityColor(task.priority)}`}>
                           {task.content}
                         </div>
                       ))}
                       {(dayTasks.length + dayEvents.length) > 4 && (
-                        <div className="text-xs text-gray-400 dark:text-gray-500 px-1">
-                          +{dayTasks.length + dayEvents.length - 4} more
-                        </div>
+                        <div className="text-xs text-gray-500 px-1">+{dayTasks.length + dayEvents.length - 4} more</div>
                       )}
                     </div>
                   </>
@@ -185,32 +173,27 @@ export default function CalendarPage() {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 mt-4 px-2 text-xs text-gray-500 dark:text-gray-400">
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-green-500 inline-block" /> iCloud</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-500 inline-block" /> Google</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block" /> Urgent</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-orange-400 inline-block" /> High</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-yellow-400 inline-block" /> Medium</span>
-        <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-blue-400 inline-block" /> Low</span>
+      <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> iCloud</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Google</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Urgent</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> High</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Medium</span>
       </div>
 
       {selected && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
-          <div className="bg-white dark:bg-gray-800 rounded-3xl p-8 w-full max-w-md" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-semibold mb-5 text-gray-900 dark:text-gray-100">
-              {monthName} {selected.day}
-            </h3>
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
+          <div className="bg-gray-900 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-5 text-white">{monthName} {selected.day}</h3>
             {selected.events.length > 0 && (
               <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Calendar Events</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Calendar</p>
                 <div className="space-y-2">
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-green-500'}`} />
-                      <div>
-                        <span className="text-gray-800 dark:text-gray-200">{e.title}</span>
-                        <span className="text-xs text-gray-400 ml-2">{formatTime(e)}</span>
-                      </div>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                      <span className="text-gray-200">{e.title}</span>
+                      <span className="text-xs text-gray-500 ml-auto">{formatTime(e)}</span>
                     </div>
                   ))}
                 </div>
@@ -218,21 +201,18 @@ export default function CalendarPage() {
             )}
             {selected.tasks.length > 0 && (
               <div>
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Todoist Tasks</p>
+                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tasks</p>
                 <div className="space-y-2">
                   {selected.tasks.map(task => (
                     <div key={task.id} className="flex items-center gap-3">
-                      <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${taskPriorityColor(task.priority)}`} />
-                      <span className="text-gray-800 dark:text-gray-200">{task.content}</span>
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${taskPriorityColor(task.priority)}`} />
+                      <span className="text-gray-200">{task.content}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <button
-              onClick={() => setSelected(null)}
-              className="mt-6 w-full py-3 border-2 border-gray-200 dark:border-gray-600 dark:text-gray-200 rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition"
-            >
+            <button onClick={() => setSelected(null)} className="mt-6 w-full py-3 border border-white/10 rounded-xl font-semibold text-gray-400 hover:text-white hover:border-white/20 transition">
               Close
             </button>
           </div>

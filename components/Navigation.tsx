@@ -1,43 +1,54 @@
 'use client';
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from 'react';
 
 export default function Navigation() {
-  const [darkMode, setDarkMode] = useState(false);
+  const pathname = usePathname();
+  const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
-    const isDark = localStorage.getItem('darkMode') === 'true' || 
-      (!localStorage.getItem('darkMode') && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    const stored = localStorage.getItem('darkMode');
+    const isDark = stored === null ? true : stored === 'true';
     setDarkMode(isDark);
-    if (isDark) document.documentElement.classList.add('dark');
+    document.documentElement.classList.toggle('dark', isDark);
   }, []);
 
   const toggleDarkMode = () => {
-    const newMode = !darkMode;
-    setDarkMode(newMode);
-    localStorage.setItem('darkMode', newMode.toString());
-    
-    if (newMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
+    const next = !darkMode;
+    setDarkMode(next);
+    localStorage.setItem('darkMode', String(next));
+    document.documentElement.classList.toggle('dark', next);
   };
 
-  return (
-    <nav className="bg-white dark:bg-gray-900 border-b dark:border-gray-700 sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-8 py-4 flex items-center justify-between">
-        <Link href="/" className="font-bold text-2xl text-gray-900 dark:text-gray-100">Efficiency</Link>
+  const links = [
+    { href: '/', label: 'Home' },
+    { href: '/today', label: 'Today' },
+    { href: '/calendar', label: 'Calendar' },
+  ];
 
-        <div className="flex items-center gap-8 text-sm font-medium text-gray-700 dark:text-gray-300">
-          <Link href="/" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Home</Link>
-          <Link href="/today" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Today</Link>
-          <Link href="/calendar" className="hover:text-blue-600 dark:hover:text-blue-400 transition">Calendar</Link>
-          <button 
-            onClick={toggleDarkMode}
-            className="text-xl hover:scale-110 transition"
-          >
+  return (
+    <nav className="border-b border-white/10 bg-gray-950/80 backdrop-blur sticky top-0 z-50">
+      <div className="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
+        <span className="font-bold text-xl bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent">
+          Efficiency
+        </span>
+        <div className="flex items-center gap-1">
+          {links.map(({ href, label }) => (
+            <Link
+              key={href}
+              href={href}
+              className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                pathname === href
+                  ? 'bg-white/10 text-white'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              }`}
+            >
+              {label}
+            </Link>
+          ))}
+          <button onClick={toggleDarkMode} className="ml-2 text-lg text-gray-400 hover:text-white transition">
             {darkMode ? '☀️' : '🌙'}
           </button>
         </div>
