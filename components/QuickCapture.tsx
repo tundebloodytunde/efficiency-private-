@@ -31,15 +31,25 @@ export default function QuickCapture() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const stopListening = useCallback(() => {
-    recognitionRef.current?.stop();
+    if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
+    try { recognitionRef.current?.stop(); } catch {}
     recognitionRef.current = null;
     setListening(false);
   }, []);
 
+  // Stop recognition if modal closes
+  useEffect(() => { if (!open) stopListening(); }, [open, stopListening]);
+
+  // Cleanup on unmount
+  useEffect(() => () => stopListening(), [stopListening]);
+
   const startListening = useCallback(() => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SR) return;
+
     const recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
@@ -55,21 +65,28 @@ export default function QuickCapture() {
     };
 
     recognition.onend = () => {
-      setListening(false);
+      if (timeoutRef.current) { clearTimeout(timeoutRef.current); timeoutRef.current = null; }
       recognitionRef.current = null;
+      setListening(false);
       inputRef.current?.focus();
     };
 
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', e.error);
-      setListening(false);
-      recognitionRef.current = null;
+      stopListening();
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-    setListening(true);
-  }, []);
+    try {
+      recognition.start();
+      setListening(true);
+      // Safety net: stop after 10s in case onend never fires
+      timeoutRef.current = setTimeout(stopListening, 10000);
+    } catch (err) {
+      console.error('Failed to start speech recognition:', err);
+      recognitionRef.current = null;
+    }
+  }, [stopListening]);
 
   const toggleVoice = useCallback(() => {
     if (listening) stopListening();
