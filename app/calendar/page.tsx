@@ -248,67 +248,73 @@ export default function CalendarPage() {
 
         {/* Scrollable time grid */}
         <div className="overflow-y-auto max-h-[600px]" style={{ scrollbarWidth: 'thin' }}>
-          <div className="relative" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
-            {/* Hour rows */}
-            <div className="relative" style={{ height: `${24 * 56}px` }}>
-              {/* Time labels */}
+          {/* Grid: time label col + day cols */}
+          <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)`, height: `${24 * 56}px` }}>
+            {/* Time labels column */}
+            <div className="relative">
               {HOURS.map(h => (
-                <div key={h} className="absolute left-0 w-full flex" style={{ top: `${h * 56}px` }}>
-                  <div className="w-14 text-right pr-2 text-xs text-gray-400 dark:text-gray-600 -translate-y-2.5 shrink-0">{h > 0 ? formatHour(h) : ''}</div>
-                  <div className="flex-1 border-t border-white/5" />
+                <div key={h} className="absolute w-full text-right pr-2 text-xs text-gray-400 dark:text-gray-600" style={{ top: `${h * 56 - 9}px` }}>
+                  {h > 0 ? formatHour(h) : ''}
                 </div>
               ))}
-
-              {/* Half-hour markers */}
-              {HOURS.map(h => (
-                <div key={`h${h}`} className="absolute left-14 right-0 border-t border-white/[0.03]" style={{ top: `${h * 56 + 28}px` }} />
-              ))}
-
-              {/* Current time line */}
-              {days.some(d => isSameDay(d, today)) && (
-                <div className="absolute left-14 right-0 flex items-center z-20" style={{ top: `${nowTop}px` }}>
-                  <div className="w-2 h-2 rounded-full bg-red-400 -ml-1" />
-                  <div className="flex-1 border-t border-red-400/60" />
-                </div>
-              )}
-
-              {/* Column dividers + events */}
-              {days.map((d, colIdx) => {
-                const colEvents = eventsForDate(d).filter(e => !e.allDay);
-                const colTasks = tasksForDate(d);
-                const colLeft = `calc(56px + ${colIdx} * ((100% - 56px) / ${days.length}))`;
-                const colWidth = `calc((100% - 56px) / ${days.length})`;
-
-                return (
-                  <div key={colIdx} className="absolute top-0 bottom-0 border-l border-white/5" style={{ left: colLeft, width: colWidth }}>
-                    {colEvents.map(e => (
-                      <div
-                        key={e.id}
-                        className={`absolute inset-x-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition ${eventBg(e.source)}`}
-                        style={{ top: `${eventTop(e.start)}px`, height: `${Math.max(eventHeight(e.start, e.end), 20)}px` }}
-                        onClick={() => openDay(d)}
-                      >
-                        <div className="truncate">{e.title}</div>
-                        <div className="text-white/60 text-[10px]">{formatTime(e)}</div>
-                      </div>
-                    ))}
-                    {colTasks.filter(t => t.due?.date && t.due.date.length > 10).map(t => {
-                      const due = new Date(t.due!.date);
-                      const top = (due.getHours() + due.getMinutes() / 60) * 56;
-                      return (
-                        <div
-                          key={t.id}
-                          className={`absolute inset-x-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition ${priorityColor(t.priority)} ${priorityBorder(t.priority)} bg-opacity-80`}
-                          style={{ top: `${top}px`, height: '28px' }}
-                        >
-                          <div className="truncate">{t.content}</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                );
-              })}
             </div>
+
+            {/* Day columns */}
+            {days.map((d, colIdx) => {
+              const colEvents = eventsForDate(d).filter(e => !e.allDay);
+              const colTasks = tasksForDate(d).filter(t => t.due?.date && t.due.date.length > 10);
+              const isCol = days.some(day => isSameDay(day, today)) && isSameDay(d, today);
+
+              return (
+                <div key={colIdx} className="relative border-l border-gray-100 dark:border-white/5">
+                  {/* Hour lines */}
+                  {HOURS.map(h => (
+                    <div key={h} className="absolute left-0 right-0 border-t border-gray-100 dark:border-white/5" style={{ top: `${h * 56}px` }} />
+                  ))}
+                  {/* Half-hour lines */}
+                  {HOURS.map(h => (
+                    <div key={`hh${h}`} className="absolute left-0 right-0 border-t border-gray-50 dark:border-white/[0.02]" style={{ top: `${h * 56 + 28}px` }} />
+                  ))}
+
+                  {/* Current time line */}
+                  {isCol && (
+                    <div className="absolute left-0 right-0 flex items-center z-20" style={{ top: `${nowTop}px` }}>
+                      <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
+                      <div className="flex-1 border-t border-red-400/70" />
+                    </div>
+                  )}
+
+                  {/* Calendar events */}
+                  {colEvents.map(e => (
+                    <div
+                      key={e.id}
+                      className={`absolute left-0.5 right-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition z-10 ${eventBg(e.source)}`}
+                      style={{ top: `${eventTop(e.start)}px`, height: `${Math.max(eventHeight(e.start, e.end), 22)}px` }}
+                      onClick={ev => { ev.stopPropagation(); openDay(d); }}
+                    >
+                      <div className="truncate">{e.title}</div>
+                      <div className="text-white/70 text-[10px]">{formatTime(e)}</div>
+                    </div>
+                  ))}
+
+                  {/* Timed tasks */}
+                  {colTasks.map(t => {
+                    const due = new Date(t.due!.date);
+                    const top = (due.getHours() + due.getMinutes() / 60) * 56;
+                    return (
+                      <div
+                        key={t.id}
+                        className={`absolute left-0.5 right-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition z-10 ${priorityColor(t.priority)} ${priorityBorder(t.priority)}`}
+                        style={{ top: `${top}px`, height: '28px' }}
+                        onClick={ev => { ev.stopPropagation(); openDay(d); }}
+                      >
+                        <div className="truncate">{t.content}</div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
