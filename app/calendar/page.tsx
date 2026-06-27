@@ -147,7 +147,7 @@ export default function CalendarPage() {
     const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
 
     return (
-      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+      <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden">
         <div className="grid grid-cols-7 border-b border-white/10">
           {DAY_NAMES.map(d => (
             <div key={d} className="text-center text-xs font-semibold text-gray-500 py-3 uppercase tracking-widest">{d}</div>
@@ -177,7 +177,7 @@ export default function CalendarPage() {
                 {valid && (
                   <>
                     <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full ml-auto
-                      ${isToday ? 'bg-violet-500 text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                      ${isToday ? 'bg-violet-500 text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
                       {dayNum}
                     </div>
                     <div className="mt-1 space-y-0.5">
@@ -212,7 +212,7 @@ export default function CalendarPage() {
     const nowTop = (nowMinutes / 60) * 56;
 
     return (
-      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+      <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden">
         {/* Header */}
         <div className={`grid border-b border-white/10`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
           <div />
@@ -221,7 +221,7 @@ export default function CalendarPage() {
             return (
               <div key={i} className="text-center py-3 border-l border-white/5">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{DAY_NAMES[d.getDay()]}</div>
-                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full
+                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 text-gray-900 dark:text-white flex items-center justify-center rounded-full
                   ${isToday ? 'bg-violet-500 text-white' : 'text-white'}`}>
                   {d.getDate()}
                 </div>
@@ -233,7 +233,7 @@ export default function CalendarPage() {
         {/* All-day row */}
         {days.some(d => eventsForDate(d).some(e => e.allDay)) && (
           <div className={`grid border-b border-white/10 min-h-[32px]`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
-            <div className="text-xs text-gray-600 flex items-center justify-end pr-2 py-1">all-day</div>
+            <div className="text-xs text-gray-400 dark:text-gray-600 flex items-center justify-end pr-2 py-1">all-day</div>
             {days.map((d, i) => (
               <div key={i} className="border-l border-white/5 px-1 py-1 space-y-0.5">
                 {eventsForDate(d).filter(e => e.allDay).map(e => (
@@ -254,7 +254,7 @@ export default function CalendarPage() {
               {/* Time labels */}
               {HOURS.map(h => (
                 <div key={h} className="absolute left-0 w-full flex" style={{ top: `${h * 56}px` }}>
-                  <div className="w-14 text-right pr-2 text-xs text-gray-600 -translate-y-2.5 shrink-0">{h > 0 ? formatHour(h) : ''}</div>
+                  <div className="w-14 text-right pr-2 text-xs text-gray-400 dark:text-gray-600 -translate-y-2.5 shrink-0">{h > 0 ? formatHour(h) : ''}</div>
                   <div className="flex-1 border-t border-white/5" />
                 </div>
               ))}
@@ -332,7 +332,7 @@ export default function CalendarPage() {
               {tasksForDate(currentDate).filter(t => !t.due?.date || t.due.date.length === 10).map(t => (
                 <div key={t.id} className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
-                  <span className="text-sm text-gray-200">{t.content}</span>
+                  <span className="text-sm text-gray-800 dark:text-gray-200">{t.content}</span>
                 </div>
               ))}
             </div>
@@ -388,7 +388,7 @@ export default function CalendarPage() {
             <button onClick={() => navigate(-1)} className="w-9 h-9 flex items-center justify-center border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
               ‹
             </button>
-            <span className="text-base font-bold text-white min-w-[200px] text-center">{navLabel()}</span>
+            <span className="text-base font-bold text-gray-900 dark:text-white min-w-[200px] text-center">{navLabel()}</span>
             <button onClick={() => navigate(1)} className="w-9 h-9 flex items-center justify-center border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
               ›
             </button>
@@ -414,8 +414,8 @@ export default function CalendarPage() {
       {/* Day detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
-          <div className="bg-gray-900 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-bold mb-1 text-white">
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-1 text-gray-900 dark:text-white">
               {DAY_NAMES_FULL[selected.day.getDay()]}
             </h3>
             <p className="text-gray-500 text-sm mb-5">
@@ -428,7 +428,7 @@ export default function CalendarPage() {
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                      <span className="text-gray-200">{e.title}</span>
+                      <span className="text-gray-800 dark:text-gray-200">{e.title}</span>
                       <span className="text-xs text-gray-500 ml-auto">{formatTime(e)}</span>
                     </div>
                   ))}
@@ -442,7 +442,7 @@ export default function CalendarPage() {
                   {selected.tasks.map(t => (
                     <div key={t.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
-                      <span className="text-gray-200">{t.content}</span>
+                      <span className="text-gray-800 dark:text-gray-200">{t.content}</span>
                     </div>
                   ))}
                 </div>

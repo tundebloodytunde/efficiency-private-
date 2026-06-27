@@ -12,10 +12,10 @@ interface Task {
 }
 
 const PRIORITY = {
-  4: { label: 'Urgent', bg: 'bg-red-500/20 text-red-400 border border-red-500/30' },
-  3: { label: 'High', bg: 'bg-orange-500/20 text-orange-400 border border-orange-500/30' },
-  2: { label: 'Medium', bg: 'bg-yellow-500/20 text-yellow-400 border border-yellow-500/30' },
-  1: { label: 'Low', bg: 'bg-gray-500/20 text-gray-400 border border-gray-500/30' },
+  4: { label: 'Urgent', bg: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30' },
+  3: { label: 'High', bg: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30' },
+  2: { label: 'Medium', bg: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30' },
+  1: { label: 'Low', bg: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30' },
 } as Record<number, { label: string; bg: string }>;
 
 export default function TodayPage() {
@@ -98,7 +98,7 @@ export default function TodayPage() {
     <>
       {/* Header */}
       <div className="mb-8">
-        <p className="text-sm font-medium text-violet-400 mb-1">{dateLabel}</p>
+        <p className="text-sm font-medium text-violet-500 mb-1">{dateLabel}</p>
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
@@ -116,11 +116,11 @@ export default function TodayPage() {
       </div>
 
       {/* Daily Brief */}
-      <div className="rounded-3xl p-6 mb-6 bg-gradient-to-br from-violet-900/40 to-pink-900/20 border border-violet-500/20 backdrop-blur">
+      <div className="rounded-3xl p-6 mb-6 bg-gradient-to-br from-violet-500/10 to-pink-500/10 border border-violet-500/20 backdrop-blur">
         <div className="flex justify-between items-center mb-3">
           <div className="flex items-center gap-2">
             <span className="text-lg">✨</span>
-            <h2 className="font-bold text-white">Daily Brief</h2>
+            <h2 className="font-bold text-gray-900 dark:text-white">Daily Brief</h2>
           </div>
           <button
             onClick={generateBrief}
@@ -131,7 +131,7 @@ export default function TodayPage() {
           </button>
         </div>
         {brief ? (
-          <p className="text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
+          <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
         ) : (
           <p className="text-gray-500 text-sm">Generate an AI-powered briefing based on your schedule and tasks.</p>
         )}
@@ -140,18 +140,18 @@ export default function TodayPage() {
       {/* Task List */}
       <div className="space-y-3">
         {tasks.length === 0 ? (
-          <div className="rounded-3xl p-16 text-center border border-white/5 bg-white/5">
+          <div className="rounded-3xl p-16 text-center border border-gray-200 dark:border-white/5 bg-gray-100 dark:bg-white/5">
             <p className="text-4xl mb-3">🎉</p>
-            <p className="text-xl font-semibold text-white">Clear day ahead</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">Clear day ahead</p>
             <p className="text-gray-500 mt-1">No tasks due today</p>
           </div>
         ) : (
           tasks.map(task => {
             const p = PRIORITY[task.priority] ?? PRIORITY[1];
             return (
-              <div key={task.id} className="group bg-white/5 hover:bg-white/10 border border-white/5 hover:border-white/10 rounded-2xl px-5 py-4 flex justify-between items-center transition-all">
+              <div key={task.id} className="group bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl px-5 py-4 flex justify-between items-center transition-all">
                 <div className="flex-1 min-w-0 mr-4">
-                  <div className="font-semibold text-white">{task.content}</div>
+                  <div className="font-semibold text-gray-900 dark:text-white">{task.content}</div>
                   <div className="flex items-center gap-2 mt-1.5">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.bg}`}>
                       {p.label}
@@ -166,7 +166,7 @@ export default function TodayPage() {
                 </div>
                 <button
                   onClick={() => markDone(task.id)}
-                  className="shrink-0 w-8 h-8 rounded-full border-2 border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"
+                  className="shrink-0 w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"
                 >
                   ✓
                 </button>
@@ -179,15 +179,15 @@ export default function TodayPage() {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4">
-          <div className="bg-gray-900 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl">
-            <h3 className="text-2xl font-bold mb-6 text-white">New Task</h3>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl">
+            <h3 className="text-2xl font-bold mb-6 text-gray-900 dark:text-white">New Task</h3>
             <form onSubmit={createTask} className="space-y-4">
               <input
                 type="text"
                 placeholder="What needs to be done?"
                 value={newTask.content}
                 onChange={e => setNewTask({ ...newTask, content: e.target.value })}
-                className="w-full bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition"
+                className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                 required
                 autoFocus
               />
@@ -197,7 +197,7 @@ export default function TodayPage() {
                   <select
                     value={newTask.priority}
                     onChange={e => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
-                    className="w-full bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-white focus:outline-none transition"
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition"
                   >
                     <option value={4}>🔴 Urgent</option>
                     <option value={3}>🟠 High</option>
@@ -212,13 +212,13 @@ export default function TodayPage() {
                     placeholder="today, tomorrow..."
                     value={newTask.due_string}
                     onChange={e => setNewTask({ ...newTask, due_string: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none transition"
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                   />
                 </div>
               </div>
-              {formError && <p className="text-red-400 text-sm">{formError}</p>}
+              {formError && <p className="text-red-500 text-sm">{formError}</p>}
               <div className="flex gap-3 pt-1">
-                <button type="button" onClick={resetModal} className="flex-1 py-3 border border-white/10 rounded-xl font-semibold text-gray-400 hover:text-white hover:border-white/20 transition">
+                <button type="button" onClick={resetModal} className="flex-1 py-3 border border-gray-200 dark:border-white/10 rounded-xl font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/20 transition">
                   Cancel
                 </button>
                 <button type="submit" className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white py-3 rounded-xl font-semibold hover:opacity-90 transition">
