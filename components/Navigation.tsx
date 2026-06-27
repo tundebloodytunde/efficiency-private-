@@ -83,12 +83,12 @@ export default function Navigation() {
               <Link
                 key={href}
                 href={href}
-                className={`flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all ${
+                className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-all ${
                   active ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'
                 }`}
               >
-                <span className="text-xl leading-none">{icon}</span>
-                <span className={`text-[10px] font-semibold tracking-wide ${active ? 'text-violet-500' : ''}`}>
+                <span className="text-2xl leading-none">{icon}</span>
+                <span className={`text-xs font-semibold tracking-wide ${active ? 'text-violet-500' : ''}`}>
                   {label}
                 </span>
                 {active && <span className="absolute bottom-0 w-8 h-0.5 bg-violet-500 rounded-full" />}
