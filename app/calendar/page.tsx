@@ -20,37 +20,66 @@ interface CalEvent {
   source?: string;
 }
 
-const taskPriorityColor = (p: number) => ({
-  4: 'bg-red-500',
-  3: 'bg-orange-400',
-  2: 'bg-yellow-400',
-  1: 'bg-blue-400',
-}[p] ?? 'bg-blue-400');
+type ViewMode = 'month' | 'week' | 'day';
+
+const HOURS = Array.from({ length: 24 }, (_, i) => i);
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const DAY_NAMES_FULL = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+const priorityColor = (p: number) =>
+  ({ 4: 'bg-red-500', 3: 'bg-orange-400', 2: 'bg-yellow-400', 1: 'bg-blue-400' }[p] ?? 'bg-blue-400');
+
+const priorityBorder = (p: number) =>
+  ({ 4: 'border-red-500', 3: 'border-orange-400', 2: 'border-yellow-400', 1: 'border-blue-400' }[p] ?? 'border-blue-400');
+
+const eventBg = (source?: string) =>
+  source === 'google' ? 'bg-blue-600/80 border-blue-400' : 'bg-emerald-600/80 border-emerald-400';
+
+function formatHour(h: number) {
+  if (h === 0) return '12 AM';
+  if (h < 12) return `${h} AM`;
+  if (h === 12) return '12 PM';
+  return `${h - 12} PM`;
+}
+
+function eventTop(start: string) {
+  const d = new Date(start);
+  return (d.getHours() + d.getMinutes() / 60) * 56; // 56px per hour
+}
+
+function eventHeight(start: string, end: string) {
+  const s = new Date(start), e = new Date(end);
+  const dur = Math.max((e.getTime() - s.getTime()) / 3600000, 0.25);
+  return dur * 56;
+}
+
+function isSameDay(a: Date, b: Date) {
+  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+}
+
+function getWeekStart(d: Date) {
+  const copy = new Date(d);
+  copy.setDate(d.getDate() - d.getDay());
+  copy.setHours(0, 0, 0, 0);
+  return copy;
+}
 
 export default function CalendarPage() {
   const { data: session } = useSession();
+  const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
-  const [selected, setSelected] = useState<{ day: number; tasks: Task[]; events: CalEvent[] } | null>(null);
-
-  const year = currentDate.getFullYear();
-  const month = currentDate.getMonth();
-  const monthName = currentDate.toLocaleString('default', { month: 'long' });
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const firstDayOfMonth = new Date(year, month, 1).getDay();
-  const totalCells = Math.ceil((firstDayOfMonth + daysInMonth) / 7) * 7;
+  const [selected, setSelected] = useState<{ day: Date; tasks: Task[]; events: CalEvent[] } | null>(null);
 
   const today = new Date();
-  const isToday = (day: number) =>
-    day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
 
   useEffect(() => {
-    fetch('/api/todoist').then(r => r.json()).then(data => setTasks(Array.isArray(data) ? data : []));
-    fetch('/api/ical').then(r => r.json()).then(data =>
+    fetch('/api/todoist').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : []));
+    fetch('/api/ical').then(r => r.json()).then(d =>
       setEvents(prev => [
         ...prev.filter(e => e.source !== 'icloud'),
-        ...(Array.isArray(data) ? data.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
+        ...(Array.isArray(d) ? d.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
       ])
     );
   }, []);
@@ -60,9 +89,9 @@ export default function CalendarPage() {
     if (!accessToken) return;
     fetch('/api/gcal', { headers: { 'x-access-token': accessToken } })
       .then(r => r.json())
-      .then(data => {
-        if (!Array.isArray(data)) return;
-        const gcalEvents: CalEvent[] = data.map((e: { id: string; summary?: string; start: { date?: string; dateTime?: string }; end: { date?: string; dateTime?: string } }) => ({
+      .then(d => {
+        if (!Array.isArray(d)) return;
+        const gcalEvents: CalEvent[] = d.map((e: { id: string; summary?: string; start: { date?: string; dateTime?: string }; end: { date?: string; dateTime?: string } }) => ({
           id: e.id, title: e.summary ?? 'Event',
           start: e.start.dateTime ?? e.start.date ?? '',
           end: e.end.dateTime ?? e.end.date ?? '',
@@ -72,16 +101,17 @@ export default function CalendarPage() {
       });
   }, [session]);
 
-  function dateStrForDay(day: number) {
-    return `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  function tasksForDate(d: Date) {
+    const str = d.toLocaleDateString('en-CA');
+    return tasks.filter(t => t.due?.date?.startsWith(str));
   }
 
-  function tasksForDay(day: number) {
-    return tasks.filter(t => t.due?.date?.startsWith(dateStrForDay(day)));
+  function eventsForDate(d: Date) {
+    return events.filter(e => isSameDay(new Date(e.start), d));
   }
 
-  function eventsForDay(day: number) {
-    return events.filter(e => e.start.startsWith(dateStrForDay(day)));
+  function openDay(d: Date) {
+    setSelected({ day: d, tasks: tasksForDate(d), events: eventsForDate(d) });
   }
 
   function formatTime(e: CalEvent) {
@@ -89,80 +119,81 @@ export default function CalendarPage() {
     return new Date(e.start).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   }
 
-  return (
-    <>
-      <div className="mb-8">
-        <div className="flex justify-between items-end mb-6">
-          <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
-            Calendar
-          </h1>
-          {session ? (
-            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-xl transition">
-              Disconnect Google
-            </button>
-          ) : (
-            <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
-              + Google Calendar
-            </button>
-          )}
-        </div>
+  // Navigation
+  function navigate(dir: number) {
+    const d = new Date(currentDate);
+    if (view === 'month') d.setMonth(d.getMonth() + dir);
+    else if (view === 'week') d.setDate(d.getDate() + dir * 7);
+    else d.setDate(d.getDate() + dir);
+    setCurrentDate(d);
+  }
 
-        <div className="flex items-center justify-between">
-          <button onClick={() => setCurrentDate(new Date(year, month - 1))} className="px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/20 rounded-xl transition">
-            ← Prev
-          </button>
-          <span className="text-xl font-bold text-gray-900 dark:text-white">{monthName} {year}</span>
-          <button onClick={() => setCurrentDate(new Date(year, month + 1))} className="px-4 py-2 border border-gray-200 dark:border-white/10 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:border-gray-300 dark:hover:border-white/20 rounded-xl transition">
-            Next →
-          </button>
-        </div>
-      </div>
+  function goToday() { setCurrentDate(new Date()); }
 
-      <div className="bg-gray-50 border border-gray-100 dark:bg-white/5 dark:border-white/10 rounded-3xl p-4 transition-colors duration-200">
-        <div className="grid grid-cols-7 text-center mb-3">
-          {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-            <div key={day} className="text-xs font-semibold text-gray-500 py-2 uppercase tracking-wide">{day}</div>
+  function navLabel() {
+    if (view === 'month') return currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
+    if (view === 'day') return currentDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
+    const ws = getWeekStart(currentDate);
+    const we = new Date(ws); we.setDate(we.getDate() + 6);
+    return `${ws.toLocaleDateString('default', { month: 'short', day: 'numeric' })} – ${we.toLocaleDateString('default', { month: 'short', day: 'numeric', year: 'numeric' })}`;
+  }
+
+  // ── Month View ──────────────────────────────────────────────────────────────
+  function MonthView() {
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDow = new Date(year, month, 1).getDay();
+    const totalCells = Math.ceil((firstDow + daysInMonth) / 7) * 7;
+
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+        <div className="grid grid-cols-7 border-b border-white/10">
+          {DAY_NAMES.map(d => (
+            <div key={d} className="text-center text-xs font-semibold text-gray-500 py-3 uppercase tracking-widest">{d}</div>
           ))}
         </div>
-
-        <div className="grid grid-cols-7 gap-1.5">
+        <div className="grid grid-cols-7">
           {Array.from({ length: totalCells }).map((_, i) => {
-            const dayNumber = i - firstDayOfMonth + 1;
-            const valid = dayNumber >= 1 && dayNumber <= daysInMonth;
-            const dayTasks = valid ? tasksForDay(dayNumber) : [];
-            const dayEvents = valid ? eventsForDay(dayNumber) : [];
+            const dayNum = i - firstDow + 1;
+            const valid = dayNum >= 1 && dayNum <= daysInMonth;
+            const date = valid ? new Date(year, month, dayNum) : null;
+            const dayTasks = date ? tasksForDate(date) : [];
+            const dayEvents = date ? eventsForDate(date) : [];
+            const isToday = date ? isSameDay(date, today) : false;
             const hasItems = dayTasks.length > 0 || dayEvents.length > 0;
+            const isWeekend = i % 7 === 0 || i % 7 === 6;
 
             return (
               <div
                 key={i}
-                onClick={() => valid && hasItems && setSelected({ day: dayNumber, tasks: dayTasks, events: dayEvents })}
-                className={`rounded-xl min-h-[72px] p-1.5 transition-all ${
-                  valid
-                    ? `border hover:border-violet-500/40 hover:bg-violet-500/5 ${hasItems ? 'cursor-pointer' : ''} ${isToday(dayNumber) ? 'border-violet-500/40 bg-violet-500/10' : 'border-gray-100 dark:border-white/5'}`
-                    : 'opacity-0'
-                }`}
+                onClick={() => { if (!date) return; if (hasItems) openDay(date); else { setView('day'); setCurrentDate(date); } }}
+                className={`min-h-[100px] p-1.5 border-b border-r border-white/5 transition-all group
+                  ${!valid ? 'bg-transparent' : isWeekend ? 'bg-white/[0.02]' : ''}
+                  ${valid ? 'hover:bg-white/5 cursor-pointer' : ''}
+                  ${i % 7 === 6 ? 'border-r-0' : ''}
+                `}
               >
                 {valid && (
                   <>
-                    <span className={`text-xs font-bold flex items-center justify-center w-6 h-6 rounded-full ml-auto ${
-                      isToday(dayNumber) ? 'bg-violet-500 text-white' : 'text-gray-500 dark:text-gray-400'
-                    }`}>
-                      {dayNumber}
-                    </span>
+                    <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full ml-auto
+                      ${isToday ? 'bg-violet-500 text-white' : 'text-gray-400 group-hover:text-white'}`}>
+                      {dayNum}
+                    </div>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
-                        <div key={e.id} className={`text-white text-xs rounded-md px-1.5 py-0.5 truncate ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                        <div key={e.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate font-medium ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                          {!e.allDay && <span className="opacity-70 mr-1">{formatTime(e)}</span>}
                           {e.title}
                         </div>
                       ))}
-                      {dayTasks.slice(0, 2).map(task => (
-                        <div key={task.id} className={`text-white text-xs rounded-md px-1.5 py-0.5 truncate ${taskPriorityColor(task.priority)}`}>
-                          {task.content}
+                      {dayTasks.slice(0, 2 - Math.min(dayEvents.length, 2)).map(t => (
+                        <div key={t.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate font-medium ${priorityColor(t.priority)}`}>
+                          {t.content}
                         </div>
                       ))}
-                      {(dayTasks.length + dayEvents.length) > 4 && (
-                        <div className="text-xs text-gray-500 px-1">+{dayTasks.length + dayEvents.length - 4} more</div>
+                      {(dayTasks.length + dayEvents.length) > 2 && (
+                        <div className="text-xs text-gray-500 px-1">+{dayTasks.length + dayEvents.length - 2} more</div>
                       )}
                     </div>
                   </>
@@ -172,19 +203,224 @@ export default function CalendarPage() {
           })}
         </div>
       </div>
+    );
+  }
 
-      <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500 dark:text-gray-500">
+  // ── Time Grid (shared by Day + Week) ─────────────────────────────────────
+  function TimeGrid({ days }: { days: Date[] }) {
+    const nowMinutes = today.getHours() * 60 + today.getMinutes();
+    const nowTop = (nowMinutes / 60) * 56;
+
+    return (
+      <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden">
+        {/* Header */}
+        <div className={`grid border-b border-white/10`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+          <div />
+          {days.map((d, i) => {
+            const isToday = isSameDay(d, today);
+            return (
+              <div key={i} className="text-center py-3 border-l border-white/5">
+                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{DAY_NAMES[d.getDay()]}</div>
+                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full
+                  ${isToday ? 'bg-violet-500 text-white' : 'text-white'}`}>
+                  {d.getDate()}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* All-day row */}
+        {days.some(d => eventsForDate(d).some(e => e.allDay)) && (
+          <div className={`grid border-b border-white/10 min-h-[32px]`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+            <div className="text-xs text-gray-600 flex items-center justify-end pr-2 py-1">all-day</div>
+            {days.map((d, i) => (
+              <div key={i} className="border-l border-white/5 px-1 py-1 space-y-0.5">
+                {eventsForDate(d).filter(e => e.allDay).map(e => (
+                  <div key={e.id} className={`text-xs text-white px-2 py-0.5 rounded font-medium truncate ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                    {e.title}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Scrollable time grid */}
+        <div className="overflow-y-auto max-h-[600px]" style={{ scrollbarWidth: 'thin' }}>
+          <div className="relative" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+            {/* Hour rows */}
+            <div className="relative" style={{ height: `${24 * 56}px` }}>
+              {/* Time labels */}
+              {HOURS.map(h => (
+                <div key={h} className="absolute left-0 w-full flex" style={{ top: `${h * 56}px` }}>
+                  <div className="w-14 text-right pr-2 text-xs text-gray-600 -translate-y-2.5 shrink-0">{h > 0 ? formatHour(h) : ''}</div>
+                  <div className="flex-1 border-t border-white/5" />
+                </div>
+              ))}
+
+              {/* Half-hour markers */}
+              {HOURS.map(h => (
+                <div key={`h${h}`} className="absolute left-14 right-0 border-t border-white/[0.03]" style={{ top: `${h * 56 + 28}px` }} />
+              ))}
+
+              {/* Current time line */}
+              {days.some(d => isSameDay(d, today)) && (
+                <div className="absolute left-14 right-0 flex items-center z-20" style={{ top: `${nowTop}px` }}>
+                  <div className="w-2 h-2 rounded-full bg-red-400 -ml-1" />
+                  <div className="flex-1 border-t border-red-400/60" />
+                </div>
+              )}
+
+              {/* Column dividers + events */}
+              {days.map((d, colIdx) => {
+                const colEvents = eventsForDate(d).filter(e => !e.allDay);
+                const colTasks = tasksForDate(d);
+                const colLeft = `calc(56px + ${colIdx} * ((100% - 56px) / ${days.length}))`;
+                const colWidth = `calc((100% - 56px) / ${days.length})`;
+
+                return (
+                  <div key={colIdx} className="absolute top-0 bottom-0 border-l border-white/5" style={{ left: colLeft, width: colWidth }}>
+                    {colEvents.map(e => (
+                      <div
+                        key={e.id}
+                        className={`absolute inset-x-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition ${eventBg(e.source)}`}
+                        style={{ top: `${eventTop(e.start)}px`, height: `${Math.max(eventHeight(e.start, e.end), 20)}px` }}
+                        onClick={() => openDay(d)}
+                      >
+                        <div className="truncate">{e.title}</div>
+                        <div className="text-white/60 text-[10px]">{formatTime(e)}</div>
+                      </div>
+                    ))}
+                    {colTasks.filter(t => t.due?.date && t.due.date.length > 10).map(t => {
+                      const due = new Date(t.due!.date);
+                      const top = (due.getHours() + due.getMinutes() / 60) * 56;
+                      return (
+                        <div
+                          key={t.id}
+                          className={`absolute inset-x-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition ${priorityColor(t.priority)} ${priorityBorder(t.priority)} bg-opacity-80`}
+                          style={{ top: `${top}px`, height: '28px' }}
+                        >
+                          <div className="truncate">{t.content}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  function WeekView() {
+    const ws = getWeekStart(currentDate);
+    const days = Array.from({ length: 7 }, (_, i) => { const d = new Date(ws); d.setDate(ws.getDate() + i); return d; });
+    return <TimeGrid days={days} />;
+  }
+
+  function DayView() {
+    return (
+      <div>
+        {/* Date tasks summary */}
+        {tasksForDate(currentDate).length > 0 && (
+          <div className="mb-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Tasks today</p>
+            <div className="space-y-1.5">
+              {tasksForDate(currentDate).filter(t => !t.due?.date || t.due.date.length === 10).map(t => (
+                <div key={t.id} className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
+                  <span className="text-sm text-gray-200">{t.content}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        <TimeGrid days={[currentDate]} />
+      </div>
+    );
+  }
+
+  return (
+    <>
+      {/* Header */}
+      <div className="mb-6">
+        <div className="flex justify-between items-end mb-5">
+          <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+            Calendar
+          </h1>
+          {session ? (
+            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
+              Disconnect Google
+            </button>
+          ) : (
+            <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
+              + Google Calendar
+            </button>
+          )}
+        </div>
+
+        {/* View toggle + nav */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* View switcher */}
+          <div className="flex bg-white/5 border border-white/10 rounded-xl p-1 gap-1">
+            {(['month', 'week', 'day'] as ViewMode[]).map(v => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                className={`px-4 py-1.5 rounded-lg text-sm font-semibold capitalize transition
+                  ${view === v ? 'bg-violet-600 text-white shadow-lg shadow-violet-500/30' : 'text-gray-400 hover:text-white'}`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
+
+          {/* Today button */}
+          <button onClick={goToday} className="px-4 py-2 text-sm border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition font-semibold">
+            Today
+          </button>
+
+          {/* Prev / next */}
+          <div className="flex items-center gap-1 ml-auto">
+            <button onClick={() => navigate(-1)} className="w-9 h-9 flex items-center justify-center border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
+              ‹
+            </button>
+            <span className="text-base font-bold text-white min-w-[200px] text-center">{navLabel()}</span>
+            <button onClick={() => navigate(1)} className="w-9 h-9 flex items-center justify-center border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition">
+              ›
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Calendar body */}
+      {view === 'month' && <MonthView />}
+      {view === 'week' && <WeekView />}
+      {view === 'day' && <DayView />}
+
+      {/* Legend */}
+      <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> iCloud</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Google</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Urgent</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> High</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Medium</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Task</span>
       </div>
 
+      {/* Day detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
-          <div className="bg-white border border-gray-200 dark:bg-gray-900 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl transition-colors duration-200" onClick={e => e.stopPropagation()}>
-            <h3 className="text-2xl font-bold mb-5 text-gray-900 dark:text-white">{monthName} {selected.day}</h3>
+          <div className="bg-gray-900 border border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-2xl font-bold mb-1 text-white">
+              {DAY_NAMES_FULL[selected.day.getDay()]}
+            </h3>
+            <p className="text-gray-500 text-sm mb-5">
+              {selected.day.toLocaleDateString('default', { month: 'long', day: 'numeric', year: 'numeric' })}
+            </p>
             {selected.events.length > 0 && (
               <div className="mb-4">
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Calendar</p>
@@ -192,7 +428,7 @@ export default function CalendarPage() {
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
                       <div className={`w-2 h-2 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
-                      <span className="text-gray-700 dark:text-gray-200">{e.title}</span>
+                      <span className="text-gray-200">{e.title}</span>
                       <span className="text-xs text-gray-500 ml-auto">{formatTime(e)}</span>
                     </div>
                   ))}
@@ -203,18 +439,26 @@ export default function CalendarPage() {
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tasks</p>
                 <div className="space-y-2">
-                  {selected.tasks.map(task => (
-                    <div key={task.id} className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${taskPriorityColor(task.priority)}`} />
-                      <span className="text-gray-700 dark:text-gray-200">{task.content}</span>
+                  {selected.tasks.map(t => (
+                    <div key={t.id} className="flex items-center gap-3">
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
+                      <span className="text-gray-200">{t.content}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <button onClick={() => setSelected(null)} className="mt-6 w-full py-3 border border-gray-200 dark:border-white/10 rounded-xl font-semibold text-gray-500 hover:text-gray-900 hover:border-gray-300 dark:text-gray-400 dark:hover:text-white dark:hover:border-white/20 transition">
-              Close
-            </button>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={() => { setView('day'); setCurrentDate(selected.day); setSelected(null); }}
+                className="flex-1 py-2.5 bg-violet-600/20 border border-violet-500/30 rounded-xl text-sm font-semibold text-violet-300 hover:bg-violet-600/30 transition"
+              >
+                Open day view
+              </button>
+              <button onClick={() => setSelected(null)} className="flex-1 py-2.5 border border-white/10 rounded-xl text-sm font-semibold text-gray-400 hover:text-white transition">
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
