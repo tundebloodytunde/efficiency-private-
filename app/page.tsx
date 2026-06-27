@@ -6,7 +6,7 @@ export default function Home() {
       <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-600 to-pink-600 flex items-center justify-center text-3xl font-black text-white mb-8 shadow-2xl shadow-violet-500/30">
         E
       </div>
-      <h1 className="text-7xl font-black tracking-tight mb-4 bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+      <h1 className="text-5xl sm:text-7xl font-black tracking-tight mb-4 bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
         Efficiency
       </h1>
       <p className="text-xl text-gray-500 mb-12 max-w-sm">

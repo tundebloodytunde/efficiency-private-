@@ -46,7 +46,8 @@ export default function QuickCapture() {
       {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-gradient-to-br from-violet-600 to-pink-600 rounded-full shadow-2xl shadow-violet-500/40 flex items-center justify-center text-2xl font-light hover:scale-110 transition-transform active:scale-95 z-40"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+        className="fixed right-4 sm:right-6 sm:bottom-6 w-14 h-14 bg-gradient-to-br from-violet-600 to-pink-600 rounded-full shadow-2xl shadow-violet-500/40 flex items-center justify-center text-2xl font-light hover:scale-110 transition-transform active:scale-95 z-40"
         aria-label="Quick capture"
       >
         +

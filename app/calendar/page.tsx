@@ -354,7 +354,7 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="mb-6">
         <div className="flex justify-between items-end mb-5">
-          <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
+          <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
             Calendar
           </h1>
           {session ? (

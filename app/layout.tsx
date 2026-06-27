@@ -1,5 +1,5 @@
 import "./globals.css";
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Navigation from "@/components/Navigation";
 import AuthSessionProvider from "@/components/SessionProvider";
 import QuickCapture from "@/components/QuickCapture";
@@ -10,8 +10,16 @@ export const metadata: Metadata = {
   title: "Efficiency",
   description: "Daily workflow for high performers",
   manifest: "/manifest.webmanifest",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "Efficiency" },
+  appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Efficiency" },
   icons: { apple: "/apple-touch-icon.png" },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -24,7 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       <body className="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white min-h-screen transition-colors duration-200">
         <AuthSessionProvider>
           <Navigation />
-          <main className="max-w-4xl mx-auto px-6 py-10">
+          <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-32 sm:py-10">
             {children}
           </main>
           <QuickCapture />

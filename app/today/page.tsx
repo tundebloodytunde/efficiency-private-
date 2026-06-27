@@ -101,7 +101,7 @@ export default function TodayPage() {
         <p className="text-sm font-medium text-violet-500 mb-1">{dateLabel}</p>
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
               Today
             </h1>
             <p className="text-gray-500 mt-1">{tasks.length} task{tasks.length !== 1 ? 's' : ''} due</p>

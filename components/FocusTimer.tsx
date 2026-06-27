@@ -132,7 +132,8 @@ export default function FocusTimer() {
       <>
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-24 left-4 flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl px-4 py-2.5 shadow-lg hover:shadow-xl transition-all hover:border-violet-500/40 group"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
+          className="fixed left-4 sm:bottom-24 flex items-center gap-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl px-4 py-2.5 shadow-lg hover:shadow-xl transition-all hover:border-violet-500/40 group"
           title="Start focus timer"
         >
           <span className="text-lg">🎯</span>
@@ -179,7 +180,7 @@ export default function FocusTimer() {
 
   // ── Active timer ─────────────────────────────────────────────────────────────
   return (
-    <div className="fixed bottom-24 left-4 z-40">
+    <div className="fixed left-4 sm:bottom-24 z-40" style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}>
       <div className={`rounded-2xl border shadow-xl transition-all overflow-hidden
         ${phase === 'break'
           ? 'bg-emerald-950/90 border-emerald-500/30 dark:bg-emerald-950/90'

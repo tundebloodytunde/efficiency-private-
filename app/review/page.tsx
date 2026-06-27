@@ -70,7 +70,7 @@ export default function ReviewPage() {
         <p className="text-sm font-medium text-violet-500 mb-1">AI-Powered</p>
         <div className="flex justify-between items-end">
           <div>
-            <h1 className="text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-pink-400 to-violet-400 bg-clip-text text-transparent">
+            <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-orange-400 via-pink-400 to-violet-400 bg-clip-text text-transparent">
               Weekly Review
             </h1>
             <p className="text-gray-500 mt-1">What worked. What didn&apos;t. What&apos;s next.</p>
