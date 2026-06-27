@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import AuthSessionProvider from "@/components/SessionProvider";
 import QuickCapture from "@/components/QuickCapture";
 import PushNotifications from "@/components/PushNotifications";
+import FocusTimer from "@/components/FocusTimer";
 
 export const metadata: Metadata = {
   title: "Efficiency",
@@ -28,6 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </main>
           <QuickCapture />
           <PushNotifications />
+          <FocusTimer />
         </AuthSessionProvider>
       </body>
     </html>

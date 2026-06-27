@@ -164,12 +164,24 @@ export default function TodayPage() {
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => markDone(task.id)}
-                  className="shrink-0 w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"
-                >
-                  ✓
-                </button>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => {
+                      const event = new CustomEvent('start-focus', { detail: { task: task.content } });
+                      window.dispatchEvent(event);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 px-3 py-1.5 rounded-xl bg-violet-500/10 border border-violet-500/20 text-violet-600 dark:text-violet-400 text-xs font-semibold hover:bg-violet-500/20 transition-all"
+                    title="Start focus timer"
+                  >
+                    🎯 Focus
+                  </button>
+                  <button
+                    onClick={() => markDone(task.id)}
+                    className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"
+                  >
+                    ✓
+                  </button>
+                </div>
               </div>
             );
           })
