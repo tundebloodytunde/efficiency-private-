@@ -33,7 +33,14 @@ const priorityBorder = (p: number) =>
   ({ 4: 'border-red-500', 3: 'border-orange-400', 2: 'border-yellow-400', 1: 'border-blue-400' }[p] ?? 'border-blue-400');
 
 const eventBg = (source?: string) =>
-  source === 'google' ? 'bg-blue-600/80 border-blue-400' : 'bg-emerald-600/80 border-emerald-400';
+  source === 'google' ? 'bg-blue-600/80 border-blue-400'
+  : source === 'qgenda' ? 'bg-violet-600/80 border-violet-400'
+  : 'bg-emerald-600/80 border-emerald-400';
+
+const eventDot = (source?: string) =>
+  source === 'google' ? 'bg-blue-500'
+  : source === 'qgenda' ? 'bg-violet-500'
+  : 'bg-emerald-500';
 
 function formatHour(h: number) {
   if (h === 0) return '12 AM';
@@ -80,6 +87,12 @@ export default function CalendarPage() {
       setEvents(prev => [
         ...prev.filter(e => e.source !== 'icloud'),
         ...(Array.isArray(d) ? d.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
+      ])
+    );
+    fetch('/api/qgenda').then(r => r.json()).then(d =>
+      Array.isArray(d) && setEvents(prev => [
+        ...prev.filter(e => e.source !== 'qgenda'),
+        ...d.map((e: CalEvent) => ({ ...e, source: 'qgenda' })),
       ])
     );
   }, []);
@@ -411,6 +424,7 @@ export default function CalendarPage() {
       <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> iCloud</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Google</span>
+        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" /> QGenda</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Urgent</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> High</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Medium</span>
@@ -433,7 +447,7 @@ export default function CalendarPage() {
                 <div className="space-y-2">
                   {selected.events.map(e => (
                     <div key={e.id} className="flex items-center gap-3">
-                      <div className={`w-2 h-2 rounded-full shrink-0 ${e.source === 'google' ? 'bg-blue-500' : 'bg-emerald-500'}`} />
+                      <div className={`w-2 h-2 rounded-full shrink-0 ${eventDot(e.source)}`} />
                       <span className="text-gray-800 dark:text-gray-200">{e.title}</span>
                       <span className="text-xs text-gray-500 ml-auto">{formatTime(e)}</span>
                     </div>
