@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { createICloudEvent } from '@/lib/icloudCalendar';
 
 const BASE = 'https://api.todoist.com/api/v1';
 
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest) {
       }),
     });
     const data = await res.json();
+
+    // Auto-sync to iCloud Calendar when task has a due date
+    const dueDate: string | undefined = data.due?.datetime ?? data.due?.date;
+    if (dueDate) {
+      createICloudEvent(data.id, content, dueDate).catch(() => {});
+    }
+
     return NextResponse.json(data);
   }
 
