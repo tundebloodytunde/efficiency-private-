@@ -10,8 +10,9 @@ function headers() {
   };
 }
 
-export async function GET() {
-  const res = await fetch(`${BASE}/tasks?limit=50`, { headers: headers() });
+export async function GET(req: NextRequest) {
+  const limit = req.nextUrl.searchParams.get('limit') ?? '200';
+  const res = await fetch(`${BASE}/tasks?limit=${limit}`, { headers: headers() });
   if (!res.ok) return NextResponse.json({ error: 'Failed to fetch tasks' }, { status: 500 });
   const data = await res.json();
   return NextResponse.json(data.results ?? []);
