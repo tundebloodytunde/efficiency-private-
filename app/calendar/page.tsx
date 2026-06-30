@@ -78,6 +78,8 @@ export default function CalendarPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
   const [selected, setSelected] = useState<{ day: Date; tasks: Task[]; events: CalEvent[] } | null>(null);
+  const [syncing, setSyncing] = useState(false);
+  const [syncMsg, setSyncMsg] = useState('');
 
   const today = new Date();
 
@@ -142,6 +144,22 @@ export default function CalendarPage() {
   }
 
   function goToday() { setCurrentDate(new Date()); }
+
+  async function syncToCalendar() {
+    setSyncing(true);
+    setSyncMsg('');
+    try {
+      const res = await fetch('/api/sync/todoist-calendar', { method: 'POST' });
+      const d = await res.json();
+      if (d.error) { setSyncMsg('Sync failed — check iCloud credentials'); return; }
+      setSyncMsg(`Synced ${d.synced} task${d.synced !== 1 ? 's' : ''} to iCloud`);
+    } catch {
+      setSyncMsg('Sync failed');
+    } finally {
+      setSyncing(false);
+      setTimeout(() => setSyncMsg(''), 4000);
+    }
+  }
 
   function navLabel() {
     if (view === 'month') return currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
@@ -370,16 +388,31 @@ export default function CalendarPage() {
           <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 bg-clip-text text-transparent">
             Calendar
           </h1>
-          {session ? (
-            <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
-              Disconnect Google
+          <div className="flex items-center gap-2">
+            <button
+              onClick={syncToCalendar}
+              disabled={syncing}
+              className="text-sm px-4 py-2 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 hover:border-emerald-500/60 rounded-xl transition disabled:opacity-50"
+              title="Sync Todoist tasks with due dates to iCloud Calendar"
+            >
+              {syncing ? 'Syncing...' : '⟳ Sync Tasks'}
             </button>
-          ) : (
-            <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
-              + Google Calendar
-            </button>
-          )}
+            {session ? (
+              <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
+                Disconnect Google
+              </button>
+            ) : (
+              <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
+                + Google Calendar
+              </button>
+            )}
+          </div>
         </div>
+        {syncMsg && (
+          <div className="mb-4 text-sm text-center py-2 px-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+            {syncMsg}
+          </div>
+        )}
 
         {/* View toggle + nav */}
         <div className="flex items-center gap-3 flex-wrap">
