@@ -84,7 +84,7 @@ export default function CalendarPage() {
   const today = new Date();
 
   useEffect(() => {
-    fetch('/api/todoist').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : []));
+    fetch('/api/todoist?limit=200').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : []));
     fetch('/api/ical').then(r => r.json()).then(d =>
       setEvents(prev => [
         ...prev.filter(e => e.source !== 'icloud'),
@@ -97,6 +97,14 @@ export default function CalendarPage() {
         ...d.map((e: CalEvent) => ({ ...e, source: 'qgenda' })),
       ])
     );
+
+    // Auto-sync Todoist tasks to iCloud Calendar, throttled to once per 5 min
+    const SYNC_KEY = 'lastTodoistCalSync';
+    const lastSync = parseInt(localStorage.getItem(SYNC_KEY) ?? '0');
+    if (Date.now() - lastSync > 5 * 60 * 1000) {
+      localStorage.setItem(SYNC_KEY, String(Date.now()));
+      fetch('/api/sync/todoist-calendar', { method: 'POST' }).catch(() => {});
+    }
   }, []);
 
   useEffect(() => {
