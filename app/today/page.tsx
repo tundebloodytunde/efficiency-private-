@@ -38,12 +38,14 @@ export default function TodayPage() {
   const [notes, setNotes] = useState<Note[]>([]);
   const [triage, setTriage] = useState<TriageResult | null>(null);
   const [triageLoading, setTriageLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
 
   const today = new Date();
   const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
 
-  async function loadTasks() {
-    setLoading(true);
+  async function loadTasks(silent = false) {
+    if (!silent) setLoading(true);
+    setRefreshing(true);
     try {
       const res = await fetch('/api/todoist');
       const data = await res.json();
@@ -53,6 +55,7 @@ export default function TodayPage() {
       setTasks([]);
     }
     setLoading(false);
+    setRefreshing(false);
   }
 
   function loadNotes() {
@@ -63,7 +66,11 @@ export default function TodayPage() {
     loadTasks();
     loadNotes();
     window.addEventListener('notesUpdated', loadNotes);
-    return () => window.removeEventListener('notesUpdated', loadNotes);
+    const poll = setInterval(() => loadTasks(true), 5 * 60 * 1000);
+    return () => {
+      window.removeEventListener('notesUpdated', loadNotes);
+      clearInterval(poll);
+    };
   }, []);
 
   async function markDone(taskId: string) {
@@ -140,12 +147,22 @@ export default function TodayPage() {
             </h1>
             <p className="text-gray-500 mt-1">{tasks.length} task{tasks.length !== 1 ? 's' : ''} due</p>
           </div>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-5 py-2.5 rounded-2xl font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-violet-500/25"
-          >
-            + New Task
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => loadTasks(true)}
+              disabled={refreshing}
+              title="Refresh tasks"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-violet-500 hover:bg-violet-500/10 transition-all disabled:opacity-40"
+            >
+              <span className={`text-xl leading-none select-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+            </button>
+            <button
+              onClick={() => setShowModal(true)}
+              className="bg-gradient-to-r from-violet-600 to-pink-600 text-white px-5 py-2.5 rounded-2xl font-semibold hover:opacity-90 transition-all active:scale-95 shadow-lg shadow-violet-500/25"
+            >
+              + New Task
+            </button>
+          </div>
         </div>
       </div>
 
