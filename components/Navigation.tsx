@@ -14,7 +14,8 @@ const links = [
 export default function Navigation() {
   const pathname = usePathname();
   const [darkMode, setDarkMode] = useState(true);
-  const [notifStatus, setNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
+  const [notifGranted, setNotifGranted] = useState(false);
+  const [alertsEnabled, setAlertsEnabled] = useState(true);
 
   useEffect(() => {
     const stored = localStorage.getItem('darkMode');
@@ -24,15 +25,13 @@ export default function Navigation() {
   }, []);
 
   useEffect(() => {
-    if ('Notification' in window) {
-      setNotifStatus(Notification.permission as 'unknown' | 'granted' | 'denied');
+    if (!('Notification' in window)) return;
+    const granted = Notification.permission === 'granted';
+    setNotifGranted(granted);
+    if (granted) {
+      setAlertsEnabled(localStorage.getItem('alertsEnabled') !== 'false');
     }
   }, []);
-
-  function openNotifPrompt() {
-    const fn = (window as { __openPushPrompt?: () => void }).__openPushPrompt;
-    if (fn) fn();
-  }
 
   const toggleDarkMode = () => {
     const next = !darkMode;
@@ -41,16 +40,58 @@ export default function Navigation() {
     document.documentElement.classList.toggle('dark', next);
   };
 
+  function handleBell() {
+    if (!notifGranted) {
+      // Not yet permitted — open the push prompt
+      const fn = (window as { __openPushPrompt?: () => void }).__openPushPrompt;
+      if (fn) fn();
+      return;
+    }
+    // Toggle alerts on/off
+    const next = !alertsEnabled;
+    setAlertsEnabled(next);
+    localStorage.setItem('alertsEnabled', String(next));
+    window.dispatchEvent(new CustomEvent('alertsToggled', { detail: { enabled: next } }));
+  }
+
+  // Keep notifGranted in sync after user grants permission via the prompt
+  useEffect(() => {
+    function onFocus() {
+      if ('Notification' in window && Notification.permission === 'granted') {
+        setNotifGranted(true);
+        setAlertsEnabled(localStorage.getItem('alertsEnabled') !== 'false');
+      }
+    }
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  const bellOn = notifGranted && alertsEnabled;
+  const bellTitle = !notifGranted
+    ? 'Enable notifications'
+    : alertsEnabled ? 'Alerts on — tap to mute' : 'Alerts muted — tap to unmute';
+
+  const BellButton = ({ className }: { className?: string }) => (
+    <button
+      onClick={handleBell}
+      title={bellTitle}
+      className={className}
+      aria-label={bellTitle}
+    >
+      {bellOn ? '🔔' : '🔕'}
+    </button>
+  );
+
   return (
     <>
-      {/* ── Top bar (desktop + mobile header) ── */}
+      {/* ── Top bar ── */}
       <nav className="border-b border-gray-200 dark:border-white/10 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl sticky top-0 z-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 h-14 flex items-center justify-between">
           <span className="font-black text-lg bg-gradient-to-r from-violet-400 to-cyan-400 bg-clip-text text-transparent tracking-tight">
             Efficiency
           </span>
 
-          {/* Desktop nav links */}
+          {/* Desktop */}
           <div className="hidden sm:flex items-center gap-1">
             {links.map(({ href, label }) => (
               <Link
@@ -65,15 +106,9 @@ export default function Navigation() {
                 {label}
               </Link>
             ))}
-            <button
-              onClick={openNotifPrompt}
-              title={notifStatus === 'granted' ? 'Notifications enabled' : 'Enable notifications'}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl transition hover:bg-gray-100 dark:hover:bg-white/5 ${
-                notifStatus === 'granted' ? 'text-violet-500' : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
-              }`}
-            >
-              {notifStatus === 'granted' ? '🔔' : '🔕'}
-            </button>
+            <BellButton className={`w-9 h-9 flex items-center justify-center rounded-xl transition hover:bg-gray-100 dark:hover:bg-white/5 ${
+              bellOn ? 'text-violet-500' : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+            }`} />
             <button
               onClick={toggleDarkMode}
               className="ml-1 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition"
@@ -82,16 +117,11 @@ export default function Navigation() {
             </button>
           </div>
 
-          {/* Mobile: bell + dark mode toggle in header */}
+          {/* Mobile header */}
           <div className="sm:hidden flex items-center gap-1">
-            <button
-              onClick={openNotifPrompt}
-              className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
-                notifStatus === 'granted' ? 'text-violet-500' : 'text-gray-400'
-              }`}
-            >
-              {notifStatus === 'granted' ? '🔔' : '🔕'}
-            </button>
+            <BellButton className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
+              bellOn ? 'text-violet-500' : 'text-gray-400'
+            }`} />
             <button
               onClick={toggleDarkMode}
               className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 transition"
@@ -102,7 +132,7 @@ export default function Navigation() {
         </div>
       </nav>
 
-      {/* ── Bottom tab bar (mobile only) ── */}
+      {/* ── Bottom tab bar (mobile) ── */}
       <div
         className="sm:hidden fixed bottom-0 left-0 right-0 z-50 bg-white/90 dark:bg-gray-950/90 backdrop-blur-xl border-t border-gray-200 dark:border-white/10"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
