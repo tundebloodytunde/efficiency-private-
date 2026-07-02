@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { saveNote, getNotesForDate, deleteNote, getTodayString, type Note } from '@/lib/notes';
 
 const TIMER_PRESETS = [
   { label: '5m', ms: 5 * 60 * 1000 },
@@ -11,9 +12,16 @@ const TIMER_PRESETS = [
   { label: '1h', ms: 60 * 60 * 1000 },
 ];
 
+const MicIcon = () => (
+  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
+    <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
+    <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
+  </svg>
+);
+
 export default function QuickCapture() {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<'task' | 'timer'>('task');
+  const [tab, setTab] = useState<'task' | 'note' | 'timer'>('task');
 
   // Task state
   const [content, setContent] = useState('');
@@ -23,8 +31,15 @@ export default function QuickCapture() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
-  // Voice state
+  // Note state
+  const [noteText, setNoteText] = useState('');
+  const [noteSaved, setNoteSaved] = useState(false);
+  const [todayNotes, setTodayNotes] = useState<Note[]>([]);
+  const noteRef = useRef<HTMLTextAreaElement>(null);
+
+  // Voice state (shared by task + note tabs)
   const [listening, setListening] = useState(false);
+  const [voiceTarget, setVoiceTarget] = useState<'task' | 'note'>('task');
   const [voiceSupported, setVoiceSupported] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
@@ -42,7 +57,13 @@ export default function QuickCapture() {
   }, []);
 
   useEffect(() => {
-    if (open && tab === 'task') setTimeout(() => inputRef.current?.focus(), 50);
+    if (open) {
+      if (tab === 'task') setTimeout(() => inputRef.current?.focus(), 50);
+      if (tab === 'note') {
+        setTodayNotes(getNotesForDate(getTodayString()));
+        setTimeout(() => noteRef.current?.focus(), 50);
+      }
+    }
   }, [open, tab]);
 
   useEffect(() => {
@@ -54,7 +75,6 @@ export default function QuickCapture() {
     return () => window.removeEventListener('keydown', handler);
   }, []);
 
-  // Countdown tick
   useEffect(() => {
     if (!timerActive) { setRemaining(''); return; }
     const tick = () => {
@@ -79,9 +99,10 @@ export default function QuickCapture() {
   useEffect(() => { if (!open) stopListening(); }, [open, stopListening]);
   useEffect(() => () => stopListening(), [stopListening]);
 
-  const startListening = useCallback(() => {
+  const startListening = useCallback((target: 'task' | 'note') => {
     const SR = window.SpeechRecognition ?? window.webkitSpeechRecognition;
     if (!SR) return;
+    setVoiceTarget(target);
     const recognition = new SR();
     recognition.lang = 'en-US';
     recognition.interimResults = true;
@@ -91,13 +112,15 @@ export default function QuickCapture() {
     recognition.onresult = (e: SpeechRecognitionEvent) => {
       let transcript = '';
       for (let i = 0; i < e.results.length; i++) transcript += e.results[i][0].transcript;
-      setContent(transcript);
+      if (target === 'task') setContent(transcript);
+      else setNoteText(transcript);
     };
     recognition.onend = () => {
       if (voiceTimeoutRef.current) { clearTimeout(voiceTimeoutRef.current); voiceTimeoutRef.current = null; }
       recognitionRef.current = null;
       setListening(false);
-      inputRef.current?.focus();
+      if (target === 'task') inputRef.current?.focus();
+      else noteRef.current?.focus();
     };
     recognition.onerror = (e: SpeechRecognitionErrorEvent) => {
       console.error('Speech recognition error:', e.error);
@@ -115,9 +138,10 @@ export default function QuickCapture() {
     }
   }, [stopListening]);
 
-  const toggleVoice = useCallback(() => {
-    if (listening) stopListening(); else startListening();
-  }, [listening, startListening, stopListening]);
+  const toggleVoice = useCallback((target: 'task' | 'note') => {
+    if (listening && voiceTarget === target) stopListening();
+    else startListening(target);
+  }, [listening, voiceTarget, startListening, stopListening]);
 
   function buildDueString() {
     if (!due && !dueTime) return '';
@@ -125,11 +149,10 @@ export default function QuickCapture() {
     const [h, m] = dueTime.split(':').map(Number);
     const suffix = h < 12 ? 'am' : 'pm';
     const h12 = h % 12 || 12;
-    const timeStr = `${h12}:${String(m).padStart(2, '0')}${suffix}`;
-    return due ? `${due} at ${timeStr}` : `today at ${timeStr}`;
+    return due ? `${due} at ${h12}:${String(m).padStart(2, '0')}${suffix}` : `today at ${h12}:${String(m).padStart(2, '0')}${suffix}`;
   }
 
-  async function submit(e: React.FormEvent) {
+  async function submitTask(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
     stopListening();
@@ -145,12 +168,30 @@ export default function QuickCapture() {
     setTimeout(() => { setSaved(false); setOpen(false); }, 800);
   }
 
+  function submitNote(e: React.FormEvent) {
+    e.preventDefault();
+    if (!noteText.trim()) return;
+    stopListening();
+    saveNote(noteText);
+    setTodayNotes(getNotesForDate(getTodayString()));
+    setNoteText('');
+    setNoteSaved(true);
+    setTimeout(() => setNoteSaved(false), 1500);
+    window.dispatchEvent(new CustomEvent('notesUpdated'));
+    noteRef.current?.focus();
+  }
+
+  function removeNote(id: string) {
+    deleteNote(getTodayString(), id);
+    setTodayNotes(getNotesForDate(getTodayString()));
+    window.dispatchEvent(new CustomEvent('notesUpdated'));
+  }
+
   function startTimer(ms: number) {
     if (timerRef.current) clearTimeout(timerRef.current);
     const endsAt = Date.now() + ms;
     const label = timerLabel.trim() || 'Timer';
     setTimerActive({ label, endsAt });
-
     timerRef.current = setTimeout(() => {
       setTimerActive(null);
       if (Notification.permission === 'granted') {
@@ -160,7 +201,6 @@ export default function QuickCapture() {
         });
       }
     }, ms);
-
     setTimerLabel('');
     setTimeout(() => setOpen(false), 600);
   }
@@ -173,14 +213,12 @@ export default function QuickCapture() {
     setRemaining('');
   }
 
-  function handleClose() {
-    stopListening();
-    setOpen(false);
-  }
+  function handleClose() { stopListening(); setOpen(false); }
+
+  const isListeningFor = (t: 'task' | 'note') => listening && voiceTarget === t;
 
   return (
     <>
-      {/* Floating button */}
       <button
         onClick={() => setOpen(true)}
         style={{ bottom: 'calc(env(safe-area-inset-bottom) + 5rem)' }}
@@ -194,7 +232,6 @@ export default function QuickCapture() {
         )}
       </button>
 
-      {/* Modal */}
       {open && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-end sm:items-center justify-center z-50 px-4 pb-6 sm:pb-0"
           onClick={e => e.target === e.currentTarget && handleClose()}>
@@ -202,23 +239,19 @@ export default function QuickCapture() {
 
             {/* Tab switcher */}
             <div className="flex rounded-xl bg-gray-100 dark:bg-white/5 p-1 mb-5">
-              {(['task', 'timer'] as const).map(t => (
-                <button
-                  key={t}
-                  type="button"
-                  onClick={() => setTab(t)}
+              {(['task', 'note', 'timer'] as const).map(t => (
+                <button key={t} type="button" onClick={() => setTab(t)}
                   className={`flex-1 py-1.5 text-sm font-semibold rounded-lg transition-all ${
                     tab === t
                       ? 'bg-white dark:bg-white/10 text-gray-900 dark:text-white shadow-sm'
                       : 'text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200'
-                  }`}
-                >
-                  {t === 'task' ? 'Task' : 'Timer'}
+                  }`}>
+                  {t === 'task' ? 'Task' : t === 'note' ? 'Note' : 'Timer'}
                 </button>
               ))}
             </div>
 
-            {/* Task tab */}
+            {/* ── Task tab ── */}
             {tab === 'task' && (
               <>
                 {saved ? (
@@ -227,69 +260,42 @@ export default function QuickCapture() {
                     <p className="text-green-500 font-semibold">Task added to Todoist</p>
                   </div>
                 ) : (
-                  <form onSubmit={submit} className="space-y-3">
+                  <form onSubmit={submitTask} className="space-y-3">
                     <div className="relative">
-                      <input
-                        ref={inputRef}
-                        type="text"
-                        placeholder={listening ? 'Listening...' : "What's on your mind?"}
-                        value={content}
-                        onChange={e => setContent(e.target.value)}
+                      <input ref={inputRef} type="text"
+                        placeholder={isListeningFor('task') ? 'Listening...' : "What's on your mind?"}
+                        value={content} onChange={e => setContent(e.target.value)}
                         className={`w-full bg-gray-50 border focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition text-lg ${
-                          listening ? 'border-red-400 dark:border-red-500' : 'border-gray-200'
-                        }`}
+                          isListeningFor('task') ? 'border-red-400 dark:border-red-500' : 'border-gray-200'}`}
                       />
                       {voiceSupported && (
-                        <button
-                          type="button"
-                          onClick={toggleVoice}
+                        <button type="button" onClick={() => toggleVoice('task')}
                           className={`absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center rounded-full transition-all ${
-                            listening
-                              ? 'bg-red-500 text-white animate-pulse'
-                              : 'text-gray-400 hover:text-violet-500 dark:text-gray-500 dark:hover:text-violet-400'
-                          }`}
-                          aria-label={listening ? 'Stop listening' : 'Start voice input'}
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-4 h-4">
-                            <path d="M8.25 4.5a3.75 3.75 0 1 1 7.5 0v8.25a3.75 3.75 0 1 1-7.5 0V4.5Z" />
-                            <path d="M6 10.5a.75.75 0 0 1 .75.75v1.5a5.25 5.25 0 1 0 10.5 0v-1.5a.75.75 0 0 1 1.5 0v1.5a6.751 6.751 0 0 1-6 6.709v2.291h3a.75.75 0 0 1 0 1.5h-7.5a.75.75 0 0 1 0-1.5h3v-2.291a6.751 6.751 0 0 1-6-6.709v-1.5A.75.75 0 0 1 6 10.5Z" />
-                          </svg>
+                            isListeningFor('task') ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-violet-500 dark:text-gray-500 dark:hover:text-violet-400'}`}
+                          aria-label={isListeningFor('task') ? 'Stop listening' : 'Voice input'}>
+                          <MicIcon />
                         </button>
                       )}
                     </div>
                     <div className="flex gap-3">
-                      <select
-                        value={priority}
-                        onChange={e => setPriority(parseInt(e.target.value))}
-                        className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm focus:outline-none transition"
-                      >
+                      <select value={priority} onChange={e => setPriority(parseInt(e.target.value))}
+                        className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm focus:outline-none transition">
                         <option value={4}>🔴 Urgent</option>
                         <option value={3}>🟠 High</option>
                         <option value={2}>🟡 Medium</option>
                         <option value={1}>⚪ Low</option>
                       </select>
-                      <input
-                        type="text"
-                        placeholder="Due: today, tomorrow..."
-                        value={due}
-                        onChange={e => setDue(e.target.value)}
+                      <input type="text" placeholder="Due: today, tomorrow..."
+                        value={due} onChange={e => setDue(e.target.value)}
                         className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                       />
                     </div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">Alarm at</span>
-                      <input
-                        type="time"
-                        value={dueTime}
-                        onChange={e => setDueTime(e.target.value)}
+                      <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)}
                         className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2 text-gray-900 dark:text-white text-sm focus:outline-none transition"
                       />
-                      {dueTime && (
-                        <button type="button" onClick={() => setDueTime('')}
-                          className="text-xs text-gray-400 hover:text-red-400 transition px-2 py-2">
-                          ✕
-                        </button>
-                      )}
+                      {dueTime && <button type="button" onClick={() => setDueTime('')} className="text-xs text-gray-400 hover:text-red-400 transition px-2 py-2">✕</button>}
                     </div>
                     <div className="flex gap-3 pt-1">
                       <button type="button" onClick={handleClose}
@@ -306,7 +312,61 @@ export default function QuickCapture() {
               </>
             )}
 
-            {/* Timer tab */}
+            {/* ── Note tab ── */}
+            {tab === 'note' && (
+              <div className="space-y-3">
+                <form onSubmit={submitNote}>
+                  <div className="relative">
+                    <textarea ref={noteRef} rows={4}
+                      placeholder={isListeningFor('note') ? 'Listening...' : 'Write a note...'}
+                      value={noteText} onChange={e => setNoteText(e.target.value)}
+                      className={`w-full bg-gray-50 border focus:border-amber-400 dark:bg-white/5 dark:border-white/10 rounded-xl px-4 py-3 pr-12 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition resize-none text-base ${
+                        isListeningFor('note') ? 'border-red-400 dark:border-red-500' : 'border-gray-200'}`}
+                    />
+                    {voiceSupported && (
+                      <button type="button" onClick={() => toggleVoice('note')}
+                        className={`absolute right-3 top-3 w-8 h-8 flex items-center justify-center rounded-full transition-all ${
+                          isListeningFor('note') ? 'bg-red-500 text-white animate-pulse' : 'text-gray-400 hover:text-amber-500 dark:text-gray-500 dark:hover:text-amber-400'}`}
+                        aria-label={isListeningFor('note') ? 'Stop listening' : 'Voice input'}>
+                        <MicIcon />
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex gap-3 mt-3">
+                    <button type="button" onClick={handleClose}
+                      className="flex-1 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-500 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white transition text-sm font-medium">
+                      Cancel
+                    </button>
+                    <button type="submit"
+                      className={`flex-1 py-2.5 rounded-xl font-semibold transition text-sm ${
+                        noteSaved
+                          ? 'bg-amber-400 text-white'
+                          : 'bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:opacity-90'}`}>
+                      {noteSaved ? 'Saved ✓' : 'Save Note'}
+                    </button>
+                  </div>
+                </form>
+
+                {/* Today's notes list */}
+                {todayNotes.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    <p className="text-xs font-semibold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Today</p>
+                    {todayNotes.slice().reverse().map(note => (
+                      <div key={note.id} className="group flex items-start gap-2 bg-amber-50 dark:bg-amber-500/5 border border-amber-200/60 dark:border-amber-500/20 rounded-xl px-3 py-2.5">
+                        <span className="text-amber-500 text-xs mt-0.5 shrink-0">📝</span>
+                        <p className="flex-1 text-sm text-gray-700 dark:text-gray-300 leading-snug">{note.text}</p>
+                        <button onClick={() => removeNote(note.id)}
+                          className="text-gray-300 dark:text-gray-600 hover:text-red-400 transition text-sm shrink-0 opacity-0 group-hover:opacity-100">
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── Timer tab ── */}
             {tab === 'timer' && (
               <div className="space-y-4">
                 {timerActive ? (
@@ -320,21 +380,14 @@ export default function QuickCapture() {
                   </div>
                 ) : (
                   <>
-                    <input
-                      type="text"
-                      placeholder="What are you timing? (optional)"
-                      value={timerLabel}
-                      onChange={e => setTimerLabel(e.target.value)}
+                    <input type="text" placeholder="What are you timing? (optional)"
+                      value={timerLabel} onChange={e => setTimerLabel(e.target.value)}
                       className="w-full bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                     />
                     <div className="grid grid-cols-3 gap-2">
                       {TIMER_PRESETS.map(({ label, ms }) => (
-                        <button
-                          key={label}
-                          type="button"
-                          onClick={() => startTimer(ms)}
-                          className="py-3 rounded-xl font-bold text-sm bg-gray-50 border border-gray-200 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-600 dark:bg-white/5 dark:border-white/10 dark:hover:border-violet-500 dark:hover:bg-violet-500/10 dark:text-white dark:hover:text-violet-400 transition-all"
-                        >
+                        <button key={label} type="button" onClick={() => startTimer(ms)}
+                          className="py-3 rounded-xl font-bold text-sm bg-gray-50 border border-gray-200 hover:border-violet-400 hover:bg-violet-50 hover:text-violet-600 dark:bg-white/5 dark:border-white/10 dark:hover:border-violet-500 dark:hover:bg-violet-500/10 dark:text-white dark:hover:text-violet-400 transition-all">
                           {label}
                         </button>
                       ))}
