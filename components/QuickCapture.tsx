@@ -19,6 +19,7 @@ export default function QuickCapture() {
   const [content, setContent] = useState('');
   const [priority, setPriority] = useState(1);
   const [due, setDue] = useState('');
+  const [dueTime, setDueTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
@@ -118,6 +119,16 @@ export default function QuickCapture() {
     if (listening) stopListening(); else startListening();
   }, [listening, startListening, stopListening]);
 
+  function buildDueString() {
+    if (!due && !dueTime) return '';
+    if (!dueTime) return due;
+    const [h, m] = dueTime.split(':').map(Number);
+    const suffix = h < 12 ? 'am' : 'pm';
+    const h12 = h % 12 || 12;
+    const timeStr = `${h12}:${String(m).padStart(2, '0')}${suffix}`;
+    return due ? `${due} at ${timeStr}` : `today at ${timeStr}`;
+  }
+
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!content.trim()) return;
@@ -126,11 +137,11 @@ export default function QuickCapture() {
     await fetch('/api/todoist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'create', content, priority, due_string: due }),
+      body: JSON.stringify({ action: 'create', content, priority, due_string: buildDueString() }),
     });
     setSaving(false);
     setSaved(true);
-    setContent(''); setPriority(1); setDue('');
+    setContent(''); setPriority(1); setDue(''); setDueTime('');
     setTimeout(() => { setSaved(false); setOpen(false); }, 800);
   }
 
@@ -264,6 +275,21 @@ export default function QuickCapture() {
                         onChange={e => setDue(e.target.value)}
                         className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2.5 text-gray-900 dark:text-white text-sm placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none transition"
                       />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-400 dark:text-gray-500 shrink-0">Alarm at</span>
+                      <input
+                        type="time"
+                        value={dueTime}
+                        onChange={e => setDueTime(e.target.value)}
+                        className="flex-1 bg-gray-50 border border-gray-200 focus:border-violet-500 dark:bg-white/5 dark:border-white/10 rounded-xl px-3 py-2 text-gray-900 dark:text-white text-sm focus:outline-none transition"
+                      />
+                      {dueTime && (
+                        <button type="button" onClick={() => setDueTime('')}
+                          className="text-xs text-gray-400 hover:text-red-400 transition px-2 py-2">
+                          ✕
+                        </button>
+                      )}
                     </div>
                     <div className="flex gap-3 pt-1">
                       <button type="button" onClick={handleClose}
