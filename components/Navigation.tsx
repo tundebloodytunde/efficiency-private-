@@ -14,6 +14,7 @@ const links = [
 export default function Navigation() {
   const pathname = usePathname();
   const [darkMode, setDarkMode] = useState(true);
+  const [notifStatus, setNotifStatus] = useState<'unknown' | 'granted' | 'denied'>('unknown');
 
   useEffect(() => {
     const stored = localStorage.getItem('darkMode');
@@ -21,6 +22,17 @@ export default function Navigation() {
     setDarkMode(isDark);
     document.documentElement.classList.toggle('dark', isDark);
   }, []);
+
+  useEffect(() => {
+    if ('Notification' in window) {
+      setNotifStatus(Notification.permission as 'unknown' | 'granted' | 'denied');
+    }
+  }, []);
+
+  function openNotifPrompt() {
+    const fn = (window as { __openPushPrompt?: () => void }).__openPushPrompt;
+    if (fn) fn();
+  }
 
   const toggleDarkMode = () => {
     const next = !darkMode;
@@ -54,20 +66,39 @@ export default function Navigation() {
               </Link>
             ))}
             <button
+              onClick={openNotifPrompt}
+              title={notifStatus === 'granted' ? 'Notifications enabled' : 'Enable notifications'}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl transition hover:bg-gray-100 dark:hover:bg-white/5 ${
+                notifStatus === 'granted' ? 'text-violet-500' : 'text-gray-400 hover:text-gray-900 dark:hover:text-white'
+              }`}
+            >
+              {notifStatus === 'granted' ? '🔔' : '🔕'}
+            </button>
+            <button
               onClick={toggleDarkMode}
-              className="ml-2 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition"
+              className="ml-1 w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 transition"
             >
               {darkMode ? '☀️' : '🌙'}
             </button>
           </div>
 
-          {/* Mobile: just dark mode toggle in header */}
-          <button
-            onClick={toggleDarkMode}
-            className="sm:hidden w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 transition"
-          >
-            {darkMode ? '☀️' : '🌙'}
-          </button>
+          {/* Mobile: bell + dark mode toggle in header */}
+          <div className="sm:hidden flex items-center gap-1">
+            <button
+              onClick={openNotifPrompt}
+              className={`w-9 h-9 flex items-center justify-center rounded-xl transition ${
+                notifStatus === 'granted' ? 'text-violet-500' : 'text-gray-400'
+              }`}
+            >
+              {notifStatus === 'granted' ? '🔔' : '🔕'}
+            </button>
+            <button
+              onClick={toggleDarkMode}
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-500 dark:text-gray-400 transition"
+            >
+              {darkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
         </div>
       </nav>
 
