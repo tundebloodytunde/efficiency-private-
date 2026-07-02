@@ -3,6 +3,14 @@
 import { useEffect, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 
+interface TriageItem { num: number; task: string; reason: string; }
+interface TriageResult {
+  do_now: TriageItem[];
+  schedule: TriageItem[];
+  delegate: TriageItem[];
+  drop: TriageItem[];
+}
+
 interface Task {
   id: string;
   content: string;
@@ -28,6 +36,8 @@ export default function TodayPage() {
   const [briefLoading, setBriefLoading] = useState(false);
   const [newTask, setNewTask] = useState({ content: '', priority: 1, due_string: '' });
   const [notes, setNotes] = useState<Note[]>([]);
+  const [triage, setTriage] = useState<TriageResult | null>(null);
+  const [triageLoading, setTriageLoading] = useState(false);
 
   const today = new Date();
   const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -98,6 +108,19 @@ export default function TodayPage() {
     setBriefLoading(false);
   }
 
+  async function runTriage() {
+    setTriageLoading(true);
+    setTriage(null);
+    try {
+      const res = await fetch('/api/triage', { method: 'POST' });
+      const data = await res.json();
+      setTriage(data);
+    } catch {
+      // silently fail
+    }
+    setTriageLoading(false);
+  }
+
   if (loading) return (
     <div className="py-20 text-center">
       <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
@@ -145,6 +168,61 @@ export default function TodayPage() {
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
         ) : (
           <p className="text-gray-500 text-sm">Generate an AI-powered briefing based on your schedule and tasks.</p>
+        )}
+      </div>
+
+      {/* AI Priority Triage */}
+      <div className="rounded-3xl p-6 mb-6 bg-gradient-to-br from-red-500/10 to-orange-500/10 border border-red-500/20 backdrop-blur">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">🎯</span>
+            <h2 className="font-bold text-gray-900 dark:text-white">Priority Triage</h2>
+          </div>
+          <button
+            onClick={runTriage}
+            disabled={triageLoading}
+            className="text-sm bg-red-600 hover:bg-red-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50"
+          >
+            {triageLoading ? 'Thinking...' : triage ? 'Re-triage' : 'Triage'}
+          </button>
+        </div>
+        {!triage && !triageLoading && (
+          <p className="text-gray-500 text-sm">AI ranks all your open tasks by urgency and importance.</p>
+        )}
+        {triageLoading && (
+          <div className="flex items-center gap-3 py-2">
+            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-500 text-sm">Analyzing your tasks...</p>
+          </div>
+        )}
+        {triage && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+            {[
+              { key: 'do_now' as const, label: '🔴 Do Now', bg: 'bg-red-500/10 border-red-500/20', badge: 'bg-red-500 text-white' },
+              { key: 'schedule' as const, label: '🔵 Schedule', bg: 'bg-blue-500/10 border-blue-500/20', badge: 'bg-blue-500 text-white' },
+              { key: 'delegate' as const, label: '🟡 Reconsider', bg: 'bg-yellow-500/10 border-yellow-500/20', badge: 'bg-yellow-500 text-white' },
+              { key: 'drop' as const, label: '⚫ Drop', bg: 'bg-gray-500/10 border-gray-500/20', badge: 'bg-gray-500 text-white' },
+            ].map(({ key, label, bg, badge }) => {
+              const items = triage[key] ?? [];
+              if (items.length === 0) return null;
+              return (
+                <div key={key} className={`rounded-xl p-4 border ${bg}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-bold text-gray-700 dark:text-gray-300">{label}</span>
+                    <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full ${badge}`}>{items.length}</span>
+                  </div>
+                  <ul className="space-y-2">
+                    {items.map((item, i) => (
+                      <li key={i} className="text-xs text-gray-700 dark:text-gray-300">
+                        <span className="font-medium">{item.task}</span>
+                        {item.reason && <span className="text-gray-400 dark:text-gray-500"> — {item.reason}</span>}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              );
+            })}
+          </div>
         )}
       </div>
 
