@@ -80,23 +80,29 @@ export default function CalendarPage() {
   const [selected, setSelected] = useState<{ day: Date; tasks: Task[]; events: CalEvent[] } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
+  const [refreshing, setRefreshing] = useState(false);
 
   const today = new Date();
 
-  useEffect(() => {
-    fetch('/api/todoist?limit=200').then(r => r.json()).then(d => setTasks(Array.isArray(d) ? d : []));
-    fetch('/api/ical').then(r => r.json()).then(d =>
+  function loadCalendarData() {
+    setRefreshing(true);
+    const done = () => setRefreshing(false);
+    let pending = 3;
+    const dec = () => { if (--pending === 0) done(); };
+
+    fetch('/api/todoist?limit=200').then(r => r.json()).then(d => { setTasks(Array.isArray(d) ? d : []); dec(); }).catch(dec);
+    fetch('/api/ical').then(r => r.json()).then(d => {
       setEvents(prev => [
         ...prev.filter(e => e.source !== 'icloud'),
         ...(Array.isArray(d) ? d.map((e: CalEvent) => ({ ...e, source: 'icloud' })) : []),
-      ])
-    );
-    fetch('/api/qgenda').then(r => r.json()).then(d =>
-      Array.isArray(d) && setEvents(prev => [
+      ]); dec();
+    }).catch(dec);
+    fetch('/api/qgenda').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setEvents(prev => [
         ...prev.filter(e => e.source !== 'qgenda'),
         ...d.map((e: CalEvent) => ({ ...e, source: 'qgenda' })),
-      ])
-    );
+      ]); dec();
+    }).catch(dec);
 
     // Auto-sync Todoist tasks to iCloud Calendar, throttled to once per 5 min
     const SYNC_KEY = 'lastTodoistCalSync';
@@ -105,6 +111,12 @@ export default function CalendarPage() {
       localStorage.setItem(SYNC_KEY, String(Date.now()));
       fetch('/api/sync/todoist-calendar', { method: 'POST' }).catch(() => {});
     }
+  }
+
+  useEffect(() => {
+    loadCalendarData();
+    const poll = setInterval(loadCalendarData, 10 * 60 * 1000);
+    return () => clearInterval(poll);
   }, []);
 
   useEffect(() => {
@@ -397,6 +409,14 @@ export default function CalendarPage() {
             Calendar
           </h1>
           <div className="flex items-center gap-2">
+            <button
+              onClick={loadCalendarData}
+              disabled={refreshing}
+              title="Refresh calendar data"
+              className="w-9 h-9 flex items-center justify-center rounded-xl text-gray-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all disabled:opacity-40"
+            >
+              <span className={`text-xl leading-none select-none ${refreshing ? 'animate-spin' : ''}`}>↻</span>
+            </button>
             <button
               onClick={syncToCalendar}
               disabled={syncing}
