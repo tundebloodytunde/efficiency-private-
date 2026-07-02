@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 
 interface Task {
   id: string;
@@ -26,6 +27,7 @@ export default function TodayPage() {
   const [brief, setBrief] = useState('');
   const [briefLoading, setBriefLoading] = useState(false);
   const [newTask, setNewTask] = useState({ content: '', priority: 1, due_string: '' });
+  const [notes, setNotes] = useState<Note[]>([]);
 
   const today = new Date();
   const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -43,7 +45,16 @@ export default function TodayPage() {
     setLoading(false);
   }
 
-  useEffect(() => { loadTasks(); }, []);
+  function loadNotes() {
+    setNotes(getNotesForDate(getTodayString()));
+  }
+
+  useEffect(() => {
+    loadTasks();
+    loadNotes();
+    window.addEventListener('notesUpdated', loadNotes);
+    return () => window.removeEventListener('notesUpdated', loadNotes);
+  }, []);
 
   async function markDone(taskId: string) {
     setTasks(prev => prev.filter(t => t.id !== taskId));
@@ -187,6 +198,31 @@ export default function TodayPage() {
           })
         )}
       </div>
+
+      {/* Today's Notes */}
+      {notes.length > 0 && (
+        <div className="mt-8">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">📝</span>
+            <h2 className="text-sm font-bold text-gray-900 dark:text-white uppercase tracking-wide">Today&apos;s Notes</h2>
+            <span className="ml-auto text-xs text-gray-400">{notes.length} note{notes.length !== 1 ? 's' : ''}</span>
+          </div>
+          <div className="space-y-2">
+            {notes.map(note => (
+              <div key={note.id} className="group flex items-start gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl px-4 py-3">
+                <p className="flex-1 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed">{note.text}</p>
+                <button
+                  onClick={() => { deleteNote(getTodayString(), note.id); loadNotes(); window.dispatchEvent(new Event('notesUpdated')); }}
+                  className="opacity-0 group-hover:opacity-100 text-gray-400 hover:text-red-500 transition-all shrink-0 mt-0.5 text-lg leading-none"
+                  title="Delete note"
+                >
+                  ×
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { getNotesForDate, getRecentNoteDates, Note } from '@/lib/notes';
 
 interface TaskEntry {
   id: string;
@@ -68,13 +69,34 @@ function ByDayTab() {
   const [data, setData] = useState<CompletedData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [notesByDate, setNotesByDate] = useState<Record<string, Note[]>>({});
+  const [allDates, setAllDates] = useState<string[]>([]);
+
+  function loadNotes(taskDates: string[]) {
+    const noteDates = getRecentNoteDates();
+    const merged = [...new Set([...taskDates, ...noteDates])].sort((a, b) => b.localeCompare(a));
+    setAllDates(merged);
+    const map: Record<string, Note[]> = {};
+    for (const d of merged) { map[d] = getNotesForDate(d); }
+    setNotesByDate(map);
+  }
 
   useEffect(() => {
     fetch('/api/todoist/completed')
       .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => { setError('Failed to load completed tasks.'); setLoading(false); });
+      .then(d => {
+        setData(d);
+        setLoading(false);
+        loadNotes(d?.dates ?? []);
+      })
+      .catch(() => { setError('Failed to load completed tasks.'); setLoading(false); loadNotes([]); });
   }, []);
+
+  useEffect(() => {
+    function onNotesUpdated() { loadNotes(data?.dates ?? []); }
+    window.addEventListener('notesUpdated', onNotesUpdated);
+    return () => window.removeEventListener('notesUpdated', onNotesUpdated);
+  }, [data]);
 
   if (loading) {
     return (
@@ -89,19 +111,21 @@ function ByDayTab() {
     return <div className="rounded-2xl p-4 bg-red-500/10 border border-red-500/20 text-red-500 text-sm">{error}</div>;
   }
 
-  if (!data || data.dates.length === 0) {
+  if (!loading && !error && allDates.length === 0) {
     return (
       <div className="py-16 text-center">
         <p className="text-3xl mb-3">🎉</p>
-        <p className="text-gray-500">No completed tasks from the past 14 days found.</p>
+        <p className="text-gray-500">No completed tasks or notes from the past 14 days.</p>
       </div>
     );
   }
 
   return (
     <div className="space-y-6">
-      {data.dates.map(date => {
-        const tasks = data.byDate[date] ?? [];
+      {allDates.map(date => {
+        const tasks = data?.byDate[date] ?? [];
+        const notes = notesByDate[date] ?? [];
+        if (tasks.length === 0 && notes.length === 0) return null;
         return (
           <div key={date}>
             <div className="flex items-center gap-3 mb-3">
@@ -109,20 +133,35 @@ function ByDayTab() {
               <span className="text-xs text-gray-400">
                 {new Date(date + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
               </span>
-              <span className="ml-auto text-xs font-semibold text-green-500">{tasks.length} done</span>
+              {tasks.length > 0 && (
+                <span className="ml-auto text-xs font-semibold text-green-500">{tasks.length} done</span>
+              )}
             </div>
-            <div className="space-y-2">
-              {tasks.map(task => (
-                <div key={task.id}
-                  className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3">
-                  <span className="text-green-500 flex-shrink-0">✓</span>
-                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority] ?? 'bg-gray-400'}`} />
-                  <span className="text-sm text-gray-600 dark:text-gray-300 line-through leading-snug flex-1">
-                    {task.content}
-                  </span>
-                </div>
-              ))}
-            </div>
+            {tasks.length > 0 && (
+              <div className="space-y-2 mb-2">
+                {tasks.map(task => (
+                  <div key={task.id}
+                    className="flex items-center gap-3 bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-xl px-4 py-3">
+                    <span className="text-green-500 flex-shrink-0">✓</span>
+                    <div className={`w-2 h-2 rounded-full flex-shrink-0 ${PRIORITY_DOT[task.priority] ?? 'bg-gray-400'}`} />
+                    <span className="text-sm text-gray-600 dark:text-gray-300 line-through leading-snug flex-1">
+                      {task.content}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+            {notes.length > 0 && (
+              <div className="space-y-2">
+                {notes.map(note => (
+                  <div key={note.id}
+                    className="flex items-start gap-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/20 rounded-xl px-4 py-3">
+                    <span className="text-amber-500 flex-shrink-0 text-sm mt-0.5">📝</span>
+                    <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed flex-1">{note.text}</p>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       })}
