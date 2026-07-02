@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 function playChime() {
   try {
     const ctx = new AudioContext();
     const now = ctx.currentTime;
-    // Ascending three-note chime: C5 → E5 → G5
     [523.25, 659.25, 783.99].forEach((freq, i) => {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
@@ -25,29 +24,42 @@ function playChime() {
 }
 
 const FIRED_KEY = 'efficiencyFiredAlarms';
-const WINDOW = 24 * 60 * 60 * 1000; // only schedule alarms within 24h
+const WINDOW = 24 * 60 * 60 * 1000;
 
 function getFired(): Set<string> {
-  try {
-    return new Set(JSON.parse(localStorage.getItem(FIRED_KEY) ?? '[]'));
-  } catch { return new Set(); }
+  try { return new Set(JSON.parse(localStorage.getItem(FIRED_KEY) ?? '[]')); }
+  catch { return new Set(); }
 }
 
 function saveFired(fired: Set<string>) {
-  // Keep only entries from the last 48h to prevent unbounded growth
   const cutoff = Date.now() - 48 * 60 * 60 * 1000;
-  const recent = [...fired].filter(id => {
-    const ts = parseInt(id.split(':')[1] ?? '0');
-    return ts > cutoff;
-  });
+  const recent = [...fired].filter(id => parseInt(id.split(':')[1] ?? '0') > cutoff);
   localStorage.setItem(FIRED_KEY, JSON.stringify(recent));
 }
 
 export default function TaskAlarms() {
   const timersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const [enabled, setEnabled] = useState(true);
+
+  // Load initial state and listen for toggle events
+  useEffect(() => {
+    setEnabled(localStorage.getItem('alertsEnabled') !== 'false');
+    const handler = (e: Event) => {
+      setEnabled((e as CustomEvent<{ enabled: boolean }>).detail.enabled);
+    };
+    window.addEventListener('alertsToggled', handler);
+    return () => window.removeEventListener('alertsToggled', handler);
+  }, []);
 
   useEffect(() => {
+    if (!enabled) {
+      timersRef.current.forEach(t => clearTimeout(t));
+      timersRef.current.clear();
+      return;
+    }
+
     async function scheduleAlarms() {
+      if (localStorage.getItem('alertsEnabled') === 'false') return;
       let tasks: { id: string; content: string; due?: { datetime?: string } | null }[] = [];
       try {
         const res = await fetch('/api/todoist?limit=200');
@@ -61,18 +73,14 @@ export default function TaskAlarms() {
       for (const task of tasks) {
         const datetime = task.due?.datetime;
         if (!datetime) continue;
-
         const dueMs = new Date(datetime).getTime();
-        // alarm id encodes the due timestamp so saveFired can prune by age
         const alarmId = `${task.id}:${dueMs}`;
-
-        if (fired.has(alarmId)) continue;
-        if (timersRef.current.has(alarmId)) continue;
-
+        if (fired.has(alarmId) || timersRef.current.has(alarmId)) continue;
         const delay = dueMs - now;
-        if (delay < -60000 || delay > WINDOW) continue; // skip if >1 min past or >24h away
+        if (delay < -60000 || delay > WINDOW) continue;
 
         const t = setTimeout(() => {
+          if (localStorage.getItem('alertsEnabled') === 'false') return;
           playChime();
           if (Notification.permission === 'granted') {
             new Notification('Task due now', {
@@ -91,15 +99,13 @@ export default function TaskAlarms() {
     }
 
     scheduleAlarms();
-    // Re-check every 5 min to pick up newly added tasks
     const interval = setInterval(scheduleAlarms, 5 * 60 * 1000);
-
     return () => {
       clearInterval(interval);
       timersRef.current.forEach(t => clearTimeout(t));
       timersRef.current.clear();
     };
-  }, []);
+  }, [enabled]);
 
   return null;
 }
