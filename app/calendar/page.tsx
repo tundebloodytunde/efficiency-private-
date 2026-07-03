@@ -33,14 +33,23 @@ const priorityBorder = (p: number) =>
   ({ 4: 'border-red-500', 3: 'border-orange-400', 2: 'border-yellow-400', 1: 'border-blue-400' }[p] ?? 'border-blue-400');
 
 const eventBg = (source?: string) =>
-  source === 'google' ? 'bg-blue-600/80 border-blue-400'
-  : source === 'qgenda' ? 'bg-violet-600/80 border-violet-400'
+  source === 'google'  ? 'bg-blue-600/80 border-blue-400'
+  : source === 'qgenda'  ? 'bg-violet-600/80 border-violet-400'
+  : source === 'holiday' ? 'bg-amber-500/80 border-amber-400'
   : 'bg-emerald-600/80 border-emerald-400';
 
 const eventDot = (source?: string) =>
-  source === 'google' ? 'bg-blue-500'
-  : source === 'qgenda' ? 'bg-violet-500'
+  source === 'google'  ? 'bg-blue-500'
+  : source === 'qgenda'  ? 'bg-violet-500'
+  : source === 'holiday' ? 'bg-amber-500'
   : 'bg-emerald-500';
+
+// Compact chip color used in month grid and all-day row
+const chipBg = (source?: string) =>
+  source === 'google'  ? 'bg-blue-600 text-white'
+  : source === 'qgenda'  ? 'bg-violet-600 text-white'
+  : source === 'holiday' ? 'bg-amber-100 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-500/40'
+  : 'bg-emerald-600 text-white';
 
 function formatHour(h: number) {
   if (h === 0) return '12 AM';
@@ -87,7 +96,7 @@ export default function CalendarPage() {
   function loadCalendarData() {
     setRefreshing(true);
     const done = () => setRefreshing(false);
-    let pending = 3;
+    let pending = 4;
     const dec = () => { if (--pending === 0) done(); };
 
     fetch('/api/todoist?limit=200').then(r => r.json()).then(d => { setTasks(Array.isArray(d) ? d : []); dec(); }).catch(dec);
@@ -101,6 +110,12 @@ export default function CalendarPage() {
       if (Array.isArray(d)) setEvents(prev => [
         ...prev.filter(e => e.source !== 'qgenda'),
         ...d.map((e: CalEvent) => ({ ...e, source: 'qgenda' })),
+      ]); dec();
+    }).catch(dec);
+    fetch('/api/holidays').then(r => r.json()).then(d => {
+      if (Array.isArray(d)) setEvents(prev => [
+        ...prev.filter(e => e.source !== 'holiday'),
+        ...d,
       ]); dec();
     }).catch(dec);
 
@@ -233,7 +248,7 @@ export default function CalendarPage() {
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
-                        <div key={e.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate font-medium ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                        <div key={e.id} className={`text-xs rounded px-1.5 py-0.5 truncate font-medium ${chipBg(e.source)}`}>
                           {!e.allDay && <span className="opacity-70 mr-1">{formatTime(e)}</span>}
                           {e.title}
                         </div>
@@ -281,14 +296,14 @@ export default function CalendarPage() {
           })}
         </div>
 
-        {/* All-day row */}
+        {/* All-day row — holidays always trigger this */}
         {days.some(d => eventsForDate(d).some(e => e.allDay)) && (
           <div className={`grid border-b border-white/10 min-h-[32px]`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
             <div className="text-xs text-gray-400 dark:text-gray-600 flex items-center justify-end pr-2 py-1">all-day</div>
             {days.map((d, i) => (
               <div key={i} className="border-l border-white/5 px-1 py-1 space-y-0.5">
                 {eventsForDate(d).filter(e => e.allDay).map(e => (
-                  <div key={e.id} className={`text-xs text-white px-2 py-0.5 rounded font-medium truncate ${e.source === 'google' ? 'bg-blue-600' : 'bg-emerald-600'}`}>
+                  <div key={e.id} className={`text-xs px-2 py-0.5 rounded font-medium truncate ${chipBg(e.source)}`}>
                     {e.title}
                   </div>
                 ))}
