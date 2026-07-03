@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+export const dynamic = 'force-dynamic';
+
 const QUOTES = [
   // Thomas Sowell
   { text: "There are no solutions. There are only trade-offs.", author: "Thomas Sowell" },
