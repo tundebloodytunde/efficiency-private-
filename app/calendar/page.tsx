@@ -157,7 +157,11 @@ export default function CalendarPage() {
   }
 
   function eventsForDate(d: Date) {
-    return events.filter(e => isSameDay(new Date(e.start), d));
+    const dateStr = d.toLocaleDateString('en-CA');
+    return events.filter(e => {
+      if (e.allDay) return e.start.slice(0, 10) === dateStr;
+      return isSameDay(new Date(e.start), d);
+    });
   }
 
   function openDay(d: Date) {
