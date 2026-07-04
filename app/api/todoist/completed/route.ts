@@ -1,48 +1,50 @@
 import { NextResponse } from 'next/server';
 
-interface SyncCompletedItem {
+interface CompletedTask {
   id: string;
-  task_id: string;
   content: string;
   priority: number;
-  completed_at: string;
+  completed_at: string | null;
   project_id: string | null;
 }
 
 export async function GET() {
+  const until = new Date();
   const since = new Date();
   since.setDate(since.getDate() - 14);
-  const sinceStr = since.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
-  const url = new URL('https://api.todoist.com/sync/v9/items/get_all_completed');
+  const url = new URL('https://api.todoist.com/api/v1/tasks/completed/by_completion_date');
+  url.searchParams.set('since', since.toISOString());
+  url.searchParams.set('until', until.toISOString());
   url.searchParams.set('limit', '200');
-  url.searchParams.set('since', sinceStr);
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${process.env.TODOIST_API_TOKEN}` },
   });
 
   if (!res.ok) {
-    return NextResponse.json({ error: 'Failed to fetch completed tasks' }, { status: 500 });
+    const errText = await res.text().catch(() => '');
+    console.error('Todoist completed tasks error:', res.status, errText);
+    return NextResponse.json({ error: `Failed to fetch completed tasks (${res.status})` }, { status: 500 });
   }
 
   const data = await res.json();
-  const items: SyncCompletedItem[] = data.items ?? [];
+  const tasks: CompletedTask[] = data.items ?? data.results ?? [];
 
   const today = new Date().toISOString().slice(0, 10);
   const cutoffStr = since.toISOString().slice(0, 10);
 
   const byDate: Record<string, { id: string; content: string; priority: number; completedAt: string }[]> = {};
 
-  for (const item of items) {
-    const dateStr = (item.completed_at ?? '').slice(0, 10);
+  for (const task of tasks) {
+    const dateStr = (task.completed_at ?? '').slice(0, 10);
     if (!dateStr || dateStr < cutoffStr) continue;
     if (!byDate[dateStr]) byDate[dateStr] = [];
     byDate[dateStr].push({
-      id: item.task_id ?? item.id,
-      content: item.content,
-      priority: item.priority,
-      completedAt: item.completed_at,
+      id: task.id,
+      content: task.content,
+      priority: task.priority,
+      completedAt: task.completed_at ?? '',
     });
   }
 
