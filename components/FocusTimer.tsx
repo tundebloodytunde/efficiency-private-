@@ -14,6 +14,12 @@ function fmt(secs: number) {
 }
 
 
+function notify(title: string, body: string) {
+  if (Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/icon-192.png' });
+  }
+}
+
 export default function FocusTimer() {
   const [phase, setPhase] = useState<Phase>('idle');
   const [secs, setSecs] = useState(WORK_SECS);
@@ -62,10 +68,12 @@ export default function FocusTimer() {
         beep();
         if (phase === 'work') {
           setSessions(s => s + 1);
+          notify('Focus session complete!', 'Time for a 5-minute break.');
           setPhase('break');
           setRunning(true);
           return BREAK_SECS;
         } else {
+          notify('Break over!', 'Ready for another focus session?');
           setPhase('work');
           setRunning(false);
           return WORK_SECS;
@@ -99,6 +107,7 @@ export default function FocusTimer() {
     setSecs(WORK_SECS);
     setRunning(true);
     setOpen(false);
+    if (Notification.permission === 'default') Notification.requestPermission();
   }
 
   function reset() {
