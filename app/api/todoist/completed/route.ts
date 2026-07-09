@@ -49,7 +49,6 @@ export async function GET() {
   }
 
   const dates = Object.keys(byDate)
-    .filter(d => d < today)
     .sort((a, b) => b.localeCompare(a));
 
   return NextResponse.json({ byDate, dates });

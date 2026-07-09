@@ -34,6 +34,7 @@ function dayLabel(dateStr: string) {
   const today = new Date();
   const d = new Date(dateStr + 'T12:00:00');
   const diff = Math.round((today.setHours(0,0,0,0) - d.getTime()) / 86400000);
+  if (diff === 0) return 'Today';
   if (diff === 1) return 'Yesterday';
   if (diff === 2) return '2 days ago';
   return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
