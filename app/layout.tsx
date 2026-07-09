@@ -2,9 +2,7 @@ import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Navigation from "@/components/Navigation";
 import QuickCapture from "@/components/QuickCapture";
-import PushNotifications from "@/components/PushNotifications";
 import FocusTimer from "@/components/FocusTimer";
-import TaskAlarms from "@/components/TaskAlarms";
 
 export const metadata: Metadata = {
   title: "Efficiency",
@@ -27,7 +25,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <head>
         <script dangerouslySetInnerHTML={{ __html: `(function(){var s=localStorage.getItem('darkMode');if(s===null||s==='true')document.documentElement.classList.add('dark');})();` }} />
-        <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/push-sw.js');` }} />
       </head>
       <body className="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white min-h-screen transition-colors duration-200">
           <Navigation />
@@ -35,9 +32,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             {children}
           </main>
           <QuickCapture />
-          <PushNotifications />
           <FocusTimer />
-          <TaskAlarms />
       </body>
     </html>
   );
