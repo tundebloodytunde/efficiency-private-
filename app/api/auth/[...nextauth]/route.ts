@@ -46,7 +46,11 @@ const handler = NextAuth({
           expiresAt: account.expires_at ? account.expires_at * 1000 : Date.now() + 3600 * 1000,
         };
       }
+      // No expiresAt means an old session — pass through unchanged
+      if (!token.expiresAt) return token;
+      // Token still valid
       if (Date.now() < (token.expiresAt as number) - 60_000) return token;
+      // Token expired — refresh
       try {
         return await refreshAccessToken(token);
       } catch {
