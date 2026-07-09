@@ -96,6 +96,7 @@ export default function PushNotifications() {
       setVisible(false);
       subscribe();
       scheduleLocalAlerts();
+      window.dispatchEvent(new Event('notifPermissionGranted'));
     } else {
       setStatus('denied');
       dismiss();

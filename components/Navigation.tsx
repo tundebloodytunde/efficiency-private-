@@ -57,14 +57,18 @@ export default function Navigation() {
 
   // Keep notifGranted in sync after user grants permission via the prompt
   useEffect(() => {
-    function onFocus() {
+    function sync() {
       if ('Notification' in window && Notification.permission === 'granted') {
         setNotifGranted(true);
         setAlertsEnabled(localStorage.getItem('alertsEnabled') !== 'false');
       }
     }
-    window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    window.addEventListener('focus', sync);
+    window.addEventListener('notifPermissionGranted', sync);
+    return () => {
+      window.removeEventListener('focus', sync);
+      window.removeEventListener('notifPermissionGranted', sync);
+    };
   }, []);
 
   const bellOn = notifGranted && alertsEnabled;
