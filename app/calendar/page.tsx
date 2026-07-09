@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useSession, signIn, signOut } from 'next-auth/react';
 
 interface Task {
   id: string;
@@ -33,21 +32,17 @@ const priorityBorder = (p: number) =>
   ({ 4: 'border-red-500', 3: 'border-orange-400', 2: 'border-yellow-400', 1: 'border-blue-400' }[p] ?? 'border-blue-400');
 
 const eventBg = (source?: string) =>
-  source === 'google'  ? 'bg-blue-600/80 border-blue-400'
-  : source === 'qgenda'  ? 'bg-violet-600/80 border-violet-400'
+  source === 'qgenda'  ? 'bg-violet-600/80 border-violet-400'
   : source === 'holiday' ? 'bg-amber-500/80 border-amber-400'
   : 'bg-emerald-600/80 border-emerald-400';
 
 const eventDot = (source?: string) =>
-  source === 'google'  ? 'bg-blue-500'
-  : source === 'qgenda'  ? 'bg-violet-500'
+  source === 'qgenda'  ? 'bg-violet-500'
   : source === 'holiday' ? 'bg-amber-500'
   : 'bg-emerald-500';
 
-// Compact chip color used in month grid and all-day row
 const chipBg = (source?: string) =>
-  source === 'google'  ? 'bg-blue-600 text-white'
-  : source === 'qgenda'  ? 'bg-violet-600 text-white'
+  source === 'qgenda'  ? 'bg-violet-600 text-white'
   : source === 'holiday' ? 'bg-amber-100 dark:bg-amber-500/25 text-amber-800 dark:text-amber-200 border border-amber-300 dark:border-amber-500/40'
   : 'bg-emerald-600 text-white';
 
@@ -81,7 +76,6 @@ function getWeekStart(d: Date) {
 }
 
 export default function CalendarPage() {
-  const { data: session } = useSession();
   const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -134,27 +128,6 @@ export default function CalendarPage() {
     return () => clearInterval(poll);
   }, []);
 
-  useEffect(() => {
-    const s = session as { accessToken?: string; error?: string } | null;
-    if (s?.error === 'RefreshTokenError') {
-      setEvents(prev => prev.filter(e => e.source !== 'google'));
-      return;
-    }
-    const accessToken = s?.accessToken;
-    if (!accessToken) return;
-    fetch('/api/gcal', { headers: { 'x-access-token': accessToken } })
-      .then(r => r.json())
-      .then(d => {
-        if (!Array.isArray(d)) return;
-        const gcalEvents: CalEvent[] = d.map((e: { id: string; summary?: string; start: { date?: string; dateTime?: string }; end: { date?: string; dateTime?: string } }) => ({
-          id: e.id, title: e.summary ?? 'Event',
-          start: e.start.dateTime ?? e.start.date ?? '',
-          end: e.end.dateTime ?? e.end.date ?? '',
-          allDay: !e.start.dateTime, source: 'google',
-        }));
-        setEvents(prev => [...prev.filter(e => e.source !== 'google'), ...gcalEvents]);
-      });
-  }, [session]);
 
   function tasksForDate(d: Date) {
     const str = d.toLocaleDateString('en-CA');
@@ -449,21 +422,6 @@ export default function CalendarPage() {
             >
               {syncing ? 'Syncing...' : '⟳ Sync Tasks'}
             </button>
-            {session ? (
-              (session as { error?: string }).error === 'RefreshTokenError' ? (
-                <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-red-500/25">
-                  Reconnect Google
-                </button>
-              ) : (
-                <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
-                  Disconnect Google
-                </button>
-              )
-            ) : (
-              <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
-                + Google Calendar
-              </button>
-            )}
           </div>
         </div>
         {syncMsg && (
@@ -514,7 +472,6 @@ export default function CalendarPage() {
       {/* Legend */}
       <div className="flex items-center gap-4 mt-4 px-1 text-xs text-gray-500 flex-wrap">
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500 inline-block" /> iCloud</span>
-        <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500 inline-block" /> Google</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-violet-500 inline-block" /> QGenda</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" /> Urgent</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-orange-400 inline-block" /> High</span>

@@ -1,7 +1,6 @@
 import "./globals.css";
 import type { Metadata, Viewport } from "next";
 import Navigation from "@/components/Navigation";
-import AuthSessionProvider from "@/components/SessionProvider";
 import QuickCapture from "@/components/QuickCapture";
 import PushNotifications from "@/components/PushNotifications";
 import FocusTimer from "@/components/FocusTimer";
@@ -31,7 +30,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <script dangerouslySetInnerHTML={{ __html: `if('serviceWorker' in navigator) navigator.serviceWorker.register('/push-sw.js');` }} />
       </head>
       <body className="bg-gray-50 text-gray-900 dark:bg-gray-950 dark:text-white min-h-screen transition-colors duration-200">
-        <AuthSessionProvider>
           <Navigation />
           <main className="max-w-4xl mx-auto px-4 sm:px-6 pt-6 pb-32 sm:py-10">
             {children}
@@ -40,7 +38,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PushNotifications />
           <FocusTimer />
           <TaskAlarms />
-        </AuthSessionProvider>
       </body>
     </html>
   );
