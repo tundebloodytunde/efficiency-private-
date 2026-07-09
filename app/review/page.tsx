@@ -170,6 +170,8 @@ function ByDayTab() {
   );
 }
 
+const reviewKey = () => `weeklyReview-${new Date().toLocaleDateString('en-CA')}`;
+
 function WeekReviewTab() {
   const [loading, setLoading] = useState(false);
   const [review, setReview] = useState('');
@@ -186,12 +188,30 @@ function WeekReviewTab() {
       if (data.error) { setError(data.error); return; }
       setReview(data.review);
       setStats(data.stats);
+      localStorage.setItem(reviewKey(), JSON.stringify({ review: data.review, stats: data.stats }));
     } catch {
       setError('Failed to generate review. Try again.');
     } finally {
       setLoading(false);
     }
   }
+
+  // Restore cached review; auto-generate on Sundays if none exists
+  useEffect(() => {
+    const cached = localStorage.getItem(reviewKey());
+    if (cached) {
+      try {
+        const { review: r, stats: s } = JSON.parse(cached);
+        setReview(r);
+        setStats(s);
+        return;
+      } catch { /* ignore */ }
+    }
+    if (new Date().getDay() === 0) {
+      generate();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const formatDate = (d: string) =>
     new Date(d + 'T12:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });

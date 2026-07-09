@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 
 interface TriageItem { num: number; task: string; reason: string; }
@@ -27,6 +27,15 @@ const PRIORITY = {
   1: { label: 'Low', bg: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30' },
 } as Record<number, { label: string; bg: string }>;
 
+const SNOOZE_OPTIONS = [
+  { label: 'Tomorrow',    due: 'tomorrow' },
+  { label: 'In 3 days',  due: 'in 3 days' },
+  { label: 'Next week',  due: 'next week' },
+  { label: 'Next month', due: 'next month' },
+];
+
+const todayKey = () => new Date().toLocaleDateString('en-CA');
+
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +48,8 @@ export default function TodayPage() {
   const [triage, setTriage] = useState<TriageResult | null>(null);
   const [triageLoading, setTriageLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [snoozeOpen, setSnoozeOpen] = useState<string | null>(null);
+  const snoozeRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
   const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
@@ -62,6 +73,18 @@ export default function TodayPage() {
     setNotes(getNotesForDate(getTodayString()));
   }
 
+  // Restore cached brief and triage for today
+  useEffect(() => {
+    const key = todayKey();
+    const cachedBrief = localStorage.getItem(`dailyBrief-${key}`);
+    if (cachedBrief) setBrief(cachedBrief);
+
+    const cachedTriage = localStorage.getItem(`triage-${key}`);
+    if (cachedTriage) {
+      try { setTriage(JSON.parse(cachedTriage)); } catch { /* ignore */ }
+    }
+  }, []);
+
   useEffect(() => {
     loadTasks();
     loadNotes();
@@ -73,12 +96,42 @@ export default function TodayPage() {
     };
   }, []);
 
+  // Auto-generate brief once per day if none cached
+  useEffect(() => {
+    const key = todayKey();
+    if (!localStorage.getItem(`dailyBrief-${key}`)) {
+      generateBrief();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Close snooze menu on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (snoozeRef.current && !snoozeRef.current.contains(e.target as Node)) {
+        setSnoozeOpen(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
+
   async function markDone(taskId: string) {
     setTasks(prev => prev.filter(t => t.id !== taskId));
     await fetch('/api/todoist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'complete', taskId }),
+    });
+  }
+
+  async function snoozeTask(taskId: string, dueString: string) {
+    setSnoozeOpen(null);
+    setTasks(prev => prev.filter(t => t.id !== taskId));
+    await fetch('/api/todoist', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'reschedule', taskId, due_string: dueString }),
     });
   }
 
@@ -108,7 +161,9 @@ export default function TodayPage() {
     try {
       const res = await fetch('/api/brief', { method: 'POST' });
       const data = await res.json();
-      setBrief(data.brief || data.error || 'No response received.');
+      const text = data.brief || data.error || 'No response received.';
+      setBrief(text);
+      localStorage.setItem(`dailyBrief-${todayKey()}`, text);
     } catch {
       setBrief('Failed to generate brief.');
     }
@@ -122,6 +177,7 @@ export default function TodayPage() {
       const res = await fetch('/api/triage', { method: 'POST' });
       const data = await res.json();
       setTriage(data);
+      localStorage.setItem(`triage-${todayKey()}`, JSON.stringify(data));
     } catch {
       // silently fail
     }
@@ -178,13 +234,18 @@ export default function TodayPage() {
             disabled={briefLoading}
             className="text-sm bg-violet-600 hover:bg-violet-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50"
           >
-            {briefLoading ? 'Thinking...' : 'Generate'}
+            {briefLoading ? 'Thinking...' : brief ? 'Refresh' : 'Generate'}
           </button>
         </div>
-        {brief ? (
+        {briefLoading ? (
+          <div className="flex items-center gap-3 py-1">
+            <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <p className="text-gray-500 text-sm">Generating your briefing...</p>
+          </div>
+        ) : brief ? (
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
         ) : (
-          <p className="text-gray-500 text-sm">Generate an AI-powered briefing based on your schedule and tasks.</p>
+          <p className="text-gray-500 text-sm">Generating your daily briefing...</p>
         )}
       </div>
 
@@ -244,7 +305,7 @@ export default function TodayPage() {
       </div>
 
       {/* Task List */}
-      <div className="space-y-3">
+      <div className="space-y-3" ref={snoozeRef}>
         {tasks.length === 0 ? (
           <div className="rounded-3xl p-16 text-center border border-gray-200 dark:border-white/5 bg-gray-100 dark:bg-white/5">
             <p className="text-4xl mb-3">🎉</p>
@@ -255,7 +316,7 @@ export default function TodayPage() {
           tasks.map(task => {
             const p = PRIORITY[task.priority] ?? PRIORITY[1];
             return (
-              <div key={task.id} className="group bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl px-5 py-4 flex justify-between items-center transition-all">
+              <div key={task.id} className="group relative bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl px-5 py-4 flex justify-between items-center transition-all">
                 <div className="flex-1 min-w-0 mr-4">
                   <div className="font-semibold text-gray-900 dark:text-white">{task.content}</div>
                   <div className="flex items-center gap-2 mt-1.5">
@@ -281,6 +342,30 @@ export default function TodayPage() {
                   >
                     🎯 Focus
                   </button>
+                  {/* Snooze */}
+                  <div className="relative">
+                    <button
+                      onClick={() => setSnoozeOpen(snoozeOpen === task.id ? null : task.id)}
+                      className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 text-sm flex items-center justify-center hover:bg-blue-500/20 transition-all"
+                      title="Snooze task"
+                    >
+                      📅
+                    </button>
+                    {snoozeOpen === task.id && (
+                      <div className="absolute right-0 top-10 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl p-2 min-w-[140px]">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 pb-1">Snooze until</p>
+                        {SNOOZE_OPTIONS.map(opt => (
+                          <button
+                            key={opt.due}
+                            onClick={() => snoozeTask(task.id, opt.due)}
+                            className="w-full text-left px-3 py-2 text-sm rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition font-medium"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                   <button
                     onClick={() => markDone(task.id)}
                     className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"

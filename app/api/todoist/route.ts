@@ -29,6 +29,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: res.ok });
   }
 
+  if (action === 'reschedule') {
+    const res = await fetch(`${BASE}/tasks/${taskId}`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ due_string }),
+    });
+    return NextResponse.json({ ok: res.ok });
+  }
+
   if (action === 'create') {
     const res = await fetch(`${BASE}/tasks`, {
       method: 'POST',
