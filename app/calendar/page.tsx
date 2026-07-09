@@ -135,7 +135,12 @@ export default function CalendarPage() {
   }, []);
 
   useEffect(() => {
-    const accessToken = (session as { accessToken?: string } | null)?.accessToken;
+    const s = session as { accessToken?: string; error?: string } | null;
+    if (s?.error === 'RefreshTokenError') {
+      setEvents(prev => prev.filter(e => e.source !== 'google'));
+      return;
+    }
+    const accessToken = s?.accessToken;
     if (!accessToken) return;
     fetch('/api/gcal', { headers: { 'x-access-token': accessToken } })
       .then(r => r.json())
@@ -445,9 +450,15 @@ export default function CalendarPage() {
               {syncing ? 'Syncing...' : '⟳ Sync Tasks'}
             </button>
             {session ? (
-              <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
-                Disconnect Google
-              </button>
+              (session as { error?: string }).error === 'RefreshTokenError' ? (
+                <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-red-600 to-orange-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-red-500/25">
+                  Reconnect Google
+                </button>
+              ) : (
+                <button onClick={() => signOut()} className="text-sm px-4 py-2 border border-white/10 text-gray-400 hover:text-white rounded-xl transition">
+                  Disconnect Google
+                </button>
+              )
             ) : (
               <button onClick={() => signIn('google')} className="text-sm bg-gradient-to-r from-blue-600 to-cyan-600 text-white px-4 py-2 rounded-xl hover:opacity-90 transition shadow-lg shadow-blue-500/25">
                 + Google Calendar
