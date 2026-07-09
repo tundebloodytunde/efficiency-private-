@@ -37,9 +37,13 @@ async function scheduleLocalAlerts() {
 
 type Status = 'unknown' | 'granted' | 'denied' | 'unsupported' | 'needs-pwa';
 
+const btnPrimary = 'flex-1 bg-gradient-to-b from-violet-500 to-violet-700 text-white text-sm py-2.5 rounded-xl font-semibold shadow-lg shadow-violet-500/30 hover:from-violet-400 hover:to-violet-600 active:scale-95 active:shadow-none transition-all duration-100 disabled:opacity-60 disabled:cursor-not-allowed';
+const btnSecondary = 'mt-3 w-full bg-white/10 hover:bg-white/20 active:bg-white/5 active:scale-95 text-white text-sm py-2.5 rounded-xl font-semibold transition-all duration-100 border border-white/10';
+
 export default function PushNotifications() {
   const [status, setStatus] = useState<Status>('unknown');
   const [visible, setVisible] = useState(false);
+  const [requesting, setRequesting] = useState(false);
 
   useEffect(() => {
     if (!('Notification' in window)) { setStatus('unsupported'); return; }
@@ -90,7 +94,9 @@ export default function PushNotifications() {
   }
 
   async function requestPermission() {
+    setRequesting(true);
     const perm = await Notification.requestPermission();
+    setRequesting(false);
     if (perm === 'granted') {
       setStatus('granted');
       setVisible(false);
@@ -125,9 +131,7 @@ export default function PushNotifications() {
           <p className="text-xs text-gray-400 mt-0.5">
             iOS requires the app to be installed. Tap the Share button → <strong className="text-gray-300">Add to Home Screen</strong>.
           </p>
-          <button onClick={dismiss} className="mt-3 w-full border border-white/10 text-gray-400 text-xs py-1.5 rounded-lg hover:text-white transition">
-            Got it
-          </button>
+          <button onClick={dismiss} className={btnSecondary}>Got it</button>
         </div>
       </Banner>
     );
@@ -142,9 +146,7 @@ export default function PushNotifications() {
           <p className="text-xs text-gray-400 mt-0.5">
             Go to <strong className="text-gray-300">Settings → Notifications → Efficiency</strong> and turn them on.
           </p>
-          <button onClick={dismiss} className="mt-3 w-full border border-white/10 text-gray-400 text-xs py-1.5 rounded-lg hover:text-white transition">
-            Dismiss
-          </button>
+          <button onClick={dismiss} className={btnSecondary}>Dismiss</button>
         </div>
       </Banner>
     );
@@ -159,13 +161,17 @@ export default function PushNotifications() {
         <div className="flex gap-2 mt-3">
           <button
             onClick={requestPermission}
-            className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white text-xs py-1.5 rounded-lg font-semibold hover:opacity-90 transition"
+            disabled={requesting}
+            className={btnPrimary}
           >
-            Enable
+            {requesting ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Enabling…
+              </span>
+            ) : 'Enable'}
           </button>
-          <button onClick={dismiss} className="flex-1 border border-white/10 text-gray-400 text-xs py-1.5 rounded-lg hover:text-white transition">
-            Not now
-          </button>
+          <button onClick={dismiss} className={btnSecondary}>Not now</button>
         </div>
       </div>
     </Banner>
@@ -176,7 +182,12 @@ function Banner({ children, onDismiss }: { children: React.ReactNode; onDismiss:
   return (
     <div className="fixed bottom-24 sm:bottom-6 left-4 right-4 sm:left-auto sm:right-6 sm:w-80 bg-gray-900 border border-white/10 rounded-2xl p-4 shadow-2xl z-50 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300">
       {children}
-      <button onClick={onDismiss} className="text-gray-600 hover:text-gray-400 text-lg leading-none shrink-0 -mt-0.5">×</button>
+      <button
+        onClick={onDismiss}
+        className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-500 hover:text-white hover:bg-white/10 active:scale-90 transition-all shrink-0 -mt-0.5 text-base"
+      >
+        ×
+      </button>
     </div>
   );
 }
