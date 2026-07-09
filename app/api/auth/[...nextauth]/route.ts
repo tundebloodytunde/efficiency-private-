@@ -54,8 +54,8 @@ const handler = NextAuth({
       }
     },
     async session({ session, token }) {
-      (session as Record<string, unknown>).accessToken = token.accessToken;
-      (session as Record<string, unknown>).error = token.error;
+      (session as unknown as Record<string, unknown>).accessToken = token.accessToken;
+      (session as unknown as Record<string, unknown>).error = token.error;
       return session;
     },
   },
