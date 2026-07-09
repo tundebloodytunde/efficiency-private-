@@ -1,16 +1,1 @@
-{
-  "crons": [
-    {
-      "path": "/api/push/morning",
-      "schedule": "30 9 * * *"
-    },
-    {
-      "path": "/api/push/notify",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/push/review",
-      "schedule": "0 21 * * 0"
-    }
-  ]
-}
+{}
