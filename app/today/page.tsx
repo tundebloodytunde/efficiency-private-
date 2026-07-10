@@ -88,10 +88,13 @@ export default function TodayPage() {
   useEffect(() => {
     loadTasks();
     loadNotes();
+    function onVisible() { if (document.visibilityState === 'visible') loadTasks(true); }
     window.addEventListener('notesUpdated', loadNotes);
+    document.addEventListener('visibilitychange', onVisible);
     const poll = setInterval(() => loadTasks(true), 5 * 60 * 1000);
     return () => {
       window.removeEventListener('notesUpdated', loadNotes);
+      document.removeEventListener('visibilitychange', onVisible);
       clearInterval(poll);
     };
   }, []);

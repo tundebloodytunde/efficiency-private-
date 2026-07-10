@@ -82,7 +82,7 @@ function ByDayTab() {
     setNotesByDate(map);
   }
 
-  useEffect(() => {
+  function fetchCompleted() {
     fetch('/api/todoist/completed')
       .then(r => r.json())
       .then(d => {
@@ -91,6 +91,14 @@ function ByDayTab() {
         loadNotes(d?.dates ?? []);
       })
       .catch(() => { setError('Failed to load completed tasks.'); setLoading(false); loadNotes([]); });
+  }
+
+  useEffect(() => {
+    fetchCompleted();
+    function onVisible() { if (document.visibilityState === 'visible') fetchCompleted(); }
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
