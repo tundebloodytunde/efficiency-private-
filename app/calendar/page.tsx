@@ -124,8 +124,13 @@ export default function CalendarPage() {
 
   useEffect(() => {
     loadCalendarData();
+    function onVisible() { if (document.visibilityState === 'visible') loadCalendarData(); }
+    document.addEventListener('visibilitychange', onVisible);
     const poll = setInterval(loadCalendarData, 10 * 60 * 1000);
-    return () => clearInterval(poll);
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible);
+      clearInterval(poll);
+    };
   }, []);
 
 
