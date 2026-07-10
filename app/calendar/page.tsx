@@ -220,7 +220,7 @@ export default function CalendarPage() {
             return (
               <div
                 key={i}
-                onClick={() => { if (!date) return; if (hasItems) openDay(date); else { setView('day'); setCurrentDate(date); } }}
+                onClick={() => { if (!date) return; setView('day'); setCurrentDate(date); }}
                 className={`min-h-[100px] p-1.5 border-b border-r border-white/5 transition-all group
                   ${!valid ? 'bg-transparent' : isWeekend ? 'bg-white/[0.02]' : ''}
                   ${valid ? 'hover:bg-white/5 cursor-pointer' : ''}
@@ -271,11 +271,17 @@ export default function CalendarPage() {
           <div />
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
+            const inWeekView = days.length > 1;
             return (
-              <div key={i} className="text-center py-3 border-l border-white/5">
+              <div
+                key={i}
+                className={`text-center py-3 border-l border-white/5 ${inWeekView ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
+                onClick={inWeekView ? () => { setView('day'); setCurrentDate(d); } : undefined}
+                title={inWeekView ? `Open ${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : undefined}
+              >
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{DAY_NAMES[d.getDay()]}</div>
-                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 text-gray-900 dark:text-white flex items-center justify-center rounded-full
-                  ${isToday ? 'bg-cyan-500 text-white' :'text-white'}`}>
+                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full transition-all
+                  ${isToday ? 'bg-cyan-500 text-white' : 'text-gray-900 dark:text-white'} ${inWeekView ? 'group-hover:scale-110' : ''}`}>
                   {d.getDate()}
                 </div>
               </div>
