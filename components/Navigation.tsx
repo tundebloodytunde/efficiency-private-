@@ -45,9 +45,9 @@ export default function Navigation() {
               <Link
                 key={href}
                 href={href}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                   pathname === href
-                    ? 'bg-gray-900/10 dark:bg-white/10 text-gray-900 dark:text-white'
+                    ? 'bg-violet-500/15 text-violet-600 dark:text-violet-400'
                     : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5'
                 }`}
               >
@@ -86,15 +86,18 @@ export default function Navigation() {
               <Link
                 key={href}
                 href={href}
-                className={`flex-1 flex flex-col items-center justify-center py-3 gap-1 transition-all ${
-                  active ? 'text-violet-500' : 'text-gray-400 dark:text-gray-500'
-                }`}
+                className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all"
               >
-                <span className="text-2xl leading-none">{icon}</span>
-                <span className={`text-xs font-semibold tracking-wide ${active ? 'text-violet-500' : ''}`}>
-                  {label}
+                <span className={`flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all ${
+                  active ? 'bg-violet-500/15' : ''
+                }`}>
+                  <span className="text-xl leading-none">{icon}</span>
+                  <span className={`text-[10px] font-bold tracking-wide ${
+                    active ? 'text-violet-600 dark:text-violet-400' : 'text-gray-400 dark:text-gray-500'
+                  }`}>
+                    {label}
+                  </span>
                 </span>
-                {active && <span className="absolute bottom-0 w-8 h-0.5 bg-violet-500 rounded-full" />}
               </Link>
             );
           })}
