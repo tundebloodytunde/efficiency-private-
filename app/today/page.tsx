@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
+import WeatherWidget from '@/components/WeatherWidget';
 
 interface TriageItem { num: number; task: string; reason: string; }
 interface TriageResult {
@@ -198,7 +199,10 @@ export default function TodayPage() {
     <>
       {/* Header */}
       <div className="mb-8">
-        <p className="text-sm font-medium text-violet-500 mb-1">{dateLabel}</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm font-medium text-violet-500">{dateLabel}</p>
+          <WeatherWidget />
+        </div>
         <div className="flex justify-between items-end">
           <div>
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
