@@ -225,7 +225,7 @@ export default function CalendarPage() {
                 {valid && (
                   <>
                     <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full ml-auto
-                      ${isToday ? 'bg-violet-500 text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
+                      ${isToday ? 'bg-cyan-500 text-white' :'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
                       {dayNum}
                     </div>
                     <div className="mt-1 space-y-0.5">
@@ -270,7 +270,7 @@ export default function CalendarPage() {
               <div key={i} className="text-center py-3 border-l border-white/5">
                 <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{DAY_NAMES[d.getDay()]}</div>
                 <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 text-gray-900 dark:text-white flex items-center justify-center rounded-full
-                  ${isToday ? 'bg-violet-500 text-white' : 'text-white'}`}>
+                  ${isToday ? 'bg-cyan-500 text-white' :'text-white'}`}>
                   {d.getDate()}
                 </div>
               </div>
@@ -447,7 +447,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Today button */}
-          <button onClick={goToday} className="px-4 py-2 text-sm border border-white/10 text-gray-400 hover:text-white hover:border-white/20 rounded-xl transition font-semibold">
+          <button onClick={goToday} className="px-4 py-2 text-sm bg-cyan-500/15 border border-cyan-500/30 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-500/25 hover:border-cyan-500/50 rounded-xl transition font-semibold">
             Today
           </button>
 
