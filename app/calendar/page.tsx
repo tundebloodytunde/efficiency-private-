@@ -221,9 +221,9 @@ export default function CalendarPage() {
               <div
                 key={i}
                 onClick={() => { if (!date) return; setView('day'); setCurrentDate(date); }}
-                className={`min-h-[100px] p-1.5 border-b border-r border-white/5 transition-all group
-                  ${!valid ? 'bg-transparent' : isWeekend ? 'bg-white/[0.02]' : ''}
-                  ${valid ? 'hover:bg-white/5 cursor-pointer' : ''}
+                className={`min-h-[100px] p-1.5 border-b border-r border-gray-200 dark:border-white/10 transition-all group
+                  ${!valid ? 'bg-transparent' : isWeekend ? 'bg-gray-50 dark:bg-white/[0.02]' : ''}
+                  ${valid ? 'hover:bg-gray-100 dark:hover:bg-white/5 cursor-pointer' : ''}
                   ${i % 7 === 6 ? 'border-r-0' : ''}
                 `}
               >
@@ -325,14 +325,14 @@ export default function CalendarPage() {
               const isCol = days.some(day => isSameDay(day, today)) && isSameDay(d, today);
 
               return (
-                <div key={colIdx} className="relative border-l border-gray-100 dark:border-white/5">
+                <div key={colIdx} className="relative border-l border-gray-200 dark:border-white/10">
                   {/* Hour lines */}
                   {HOURS.map(h => (
-                    <div key={h} className="absolute left-0 right-0 border-t border-gray-100 dark:border-white/5" style={{ top: `${h * 56}px` }} />
+                    <div key={h} className="absolute left-0 right-0 border-t border-gray-200 dark:border-white/10" style={{ top: `${h * 56}px` }} />
                   ))}
                   {/* Half-hour lines */}
                   {HOURS.map(h => (
-                    <div key={`hh${h}`} className="absolute left-0 right-0 border-t border-gray-50 dark:border-white/[0.02]" style={{ top: `${h * 56 + 28}px` }} />
+                    <div key={`hh${h}`} className="absolute left-0 right-0 border-t border-gray-100 dark:border-white/[0.06]" style={{ top: `${h * 56 + 28}px` }} />
                   ))}
 
                   {/* Current time line */}
