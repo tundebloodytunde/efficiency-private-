@@ -94,7 +94,7 @@ function getWeekStart(d: Date) {
 }
 
 export default function CalendarPage() {
-  const [view, setView] = useState<ViewMode>('week');
+  const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [tasks, setTasks] = useState<Task[]>([]);
   const [events, setEvents] = useState<CalEvent[]>([]);
