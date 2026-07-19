@@ -54,6 +54,7 @@ export default function TodayPage() {
   const [snoozeOpen, setSnoozeOpen] = useState<string | null>(null);
   const [news, setNews] = useState<NewsRoundup | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
+  const [newsError, setNewsError] = useState('');
   const snoozeRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
@@ -170,16 +171,18 @@ export default function TodayPage() {
   async function generateNews() {
     setNewsLoading(true);
     setNews(null);
+    setNewsError('');
     try {
       const res = await fetch('/api/news', { method: 'POST' });
       const data = await res.json();
-      if (data.error) return;
+      if (data.error) { setNewsError(data.error); return; }
       setNews(data);
       localStorage.setItem(`newsRoundup-${todayKey()}`, JSON.stringify(data));
     } catch {
-      // silently fail
+      setNewsError('Could not load news. Tap Retry to try again.');
+    } finally {
+      setNewsLoading(false);
     }
-    setNewsLoading(false);
   }
 
   async function generateBrief() {
@@ -289,9 +292,9 @@ export default function TodayPage() {
           <button
             onClick={generateNews}
             disabled={newsLoading}
-            className="text-sm bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50"
+            className="text-sm bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50 active:scale-95"
           >
-            {newsLoading ? 'Loading...' : news ? 'Refresh' : 'Load'}
+            {newsLoading ? 'Loading...' : news ? 'Refresh' : newsError ? 'Retry' : 'Load'}
           </button>
         </div>
         {newsLoading ? (
@@ -299,6 +302,8 @@ export default function TodayPage() {
             <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin shrink-0" />
             <p className="text-gray-500 text-sm">Fetching today's headlines...</p>
           </div>
+        ) : newsError ? (
+          <p className="text-red-500 text-sm">{newsError}</p>
         ) : news ? (
           <div className="space-y-3">
             {news.intro && (
@@ -317,7 +322,7 @@ export default function TodayPage() {
             </ul>
           </div>
         ) : (
-          <p className="text-gray-500 text-sm">Loading today's top stories...</p>
+          <p className="text-gray-500 text-sm">Tap Load to fetch today's top stories.</p>
         )}
       </div>
 
