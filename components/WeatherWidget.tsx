@@ -6,7 +6,7 @@ interface WeatherData {
   temp: number;
   feelsLike: number;
   code: number;
-  windSpeed: number;
+  city: string;
 }
 
 function weatherIcon(code: number): string {
@@ -33,7 +33,7 @@ function weatherDesc(code: number): string {
   return 'Thunderstorm';
 }
 
-const CACHE_KEY = 'weather-v1';
+const CACHE_KEY = 'weather-v2';
 const CACHE_TTL = 30 * 60 * 1000;
 
 export default function WeatherWidget() {
@@ -48,32 +48,21 @@ export default function WeatherWidget() {
       }
     } catch { /* ignore */ }
 
-    if (!navigator.geolocation) return;
-
-    navigator.geolocation.getCurrentPosition(
-      async ({ coords }) => {
-        try {
-          const url =
-            `https://api.open-meteo.com/v1/forecast` +
-            `?latitude=${coords.latitude}&longitude=${coords.longitude}` +
-            `&current=temperature_2m,apparent_temperature,weather_code,wind_speed_10m` +
-            `&temperature_unit=fahrenheit&wind_speed_unit=mph`;
-          const res = await fetch(url);
-          const json = await res.json();
-          const c = json.current;
-          const data: WeatherData = {
-            temp: Math.round(c.temperature_2m),
-            feelsLike: Math.round(c.apparent_temperature),
-            code: c.weather_code,
-            windSpeed: Math.round(c.wind_speed_10m),
-          };
-          setWeather(data);
-          localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
-        } catch { /* silently fail */ }
-      },
-      () => { /* geolocation denied — stay hidden */ },
-      { timeout: 8000 },
-    );
+    fetch('/api/weather')
+      .then(r => r.json())
+      .then(json => {
+        if (json.error || !json.current) return;
+        const c = json.current;
+        const data: WeatherData = {
+          temp: Math.round(c.temperature_2m),
+          feelsLike: Math.round(c.apparent_temperature),
+          code: c.weather_code,
+          city: json.city ?? '',
+        };
+        setWeather(data);
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ ts: Date.now(), data }));
+      })
+      .catch(() => { /* silently fail */ });
   }, []);
 
   if (!weather) return null;
@@ -83,6 +72,9 @@ export default function WeatherWidget() {
       <span className="text-base leading-none">{weatherIcon(weather.code)}</span>
       <span className="font-semibold text-gray-700 dark:text-gray-300">{weather.temp}°F</span>
       <span className="text-gray-500 dark:text-gray-400">{weatherDesc(weather.code)}</span>
+      {weather.city && (
+        <span className="text-gray-400 dark:text-gray-500 hidden sm:inline">· {weather.city}</span>
+      )}
       <span className="text-gray-400 dark:text-gray-500 hidden sm:inline">· feels {weather.feelsLike}°</span>
     </div>
   );
