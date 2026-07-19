@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 import WeatherWidget from '@/components/WeatherWidget';
 
+interface NewsStory { headline: string; brief: string; }
+interface NewsRoundup { intro: string; stories: NewsStory[]; }
 interface TriageItem { num: number; task: string; reason: string; }
 interface TriageResult {
   do_now: TriageItem[];
@@ -50,6 +52,8 @@ export default function TodayPage() {
   const [triageLoading, setTriageLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState<string | null>(null);
+  const [news, setNews] = useState<NewsRoundup | null>(null);
+  const [newsLoading, setNewsLoading] = useState(false);
   const snoozeRef = useRef<HTMLDivElement>(null);
 
   const today = new Date();
@@ -74,7 +78,7 @@ export default function TodayPage() {
     setNotes(getNotesForDate(getTodayString()));
   }
 
-  // Restore cached brief and triage for today
+  // Restore cached brief, triage, and news for today
   useEffect(() => {
     const key = todayKey();
     const cachedBrief = localStorage.getItem(`dailyBrief-${key}`);
@@ -83,6 +87,11 @@ export default function TodayPage() {
     const cachedTriage = localStorage.getItem(`triage-${key}`);
     if (cachedTriage) {
       try { setTriage(JSON.parse(cachedTriage)); } catch { /* ignore */ }
+    }
+
+    const cachedNews = localStorage.getItem(`newsRoundup-${key}`);
+    if (cachedNews) {
+      try { setNews(JSON.parse(cachedNews)); } catch { /* ignore */ }
     }
   }, []);
 
@@ -100,12 +109,11 @@ export default function TodayPage() {
     };
   }, []);
 
-  // Auto-generate brief once per day if none cached
+  // Auto-generate brief and news once per day if none cached
   useEffect(() => {
     const key = todayKey();
-    if (!localStorage.getItem(`dailyBrief-${key}`)) {
-      generateBrief();
-    }
+    if (!localStorage.getItem(`dailyBrief-${key}`)) generateBrief();
+    if (!localStorage.getItem(`newsRoundup-${key}`)) generateNews();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -157,6 +165,21 @@ export default function TodayPage() {
     setShowModal(false);
     setFormError('');
     setNewTask({ content: '', priority: 1, due_string: '' });
+  }
+
+  async function generateNews() {
+    setNewsLoading(true);
+    setNews(null);
+    try {
+      const res = await fetch('/api/news', { method: 'POST' });
+      const data = await res.json();
+      if (data.error) return;
+      setNews(data);
+      localStorage.setItem(`newsRoundup-${todayKey()}`, JSON.stringify(data));
+    } catch {
+      // silently fail
+    }
+    setNewsLoading(false);
   }
 
   async function generateBrief() {
@@ -253,6 +276,48 @@ export default function TodayPage() {
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
         ) : (
           <p className="text-gray-500 text-sm">Generating your daily briefing...</p>
+        )}
+      </div>
+
+      {/* News Roundup */}
+      <div className="rounded-3xl p-6 mb-6 bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 backdrop-blur">
+        <div className="flex justify-between items-center mb-3">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">📰</span>
+            <h2 className="font-bold text-gray-900 dark:text-white">News Roundup</h2>
+          </div>
+          <button
+            onClick={generateNews}
+            disabled={newsLoading}
+            className="text-sm bg-cyan-600 hover:bg-cyan-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50"
+          >
+            {newsLoading ? 'Loading...' : news ? 'Refresh' : 'Load'}
+          </button>
+        </div>
+        {newsLoading ? (
+          <div className="flex items-center gap-3 py-1">
+            <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            <p className="text-gray-500 text-sm">Fetching today's headlines...</p>
+          </div>
+        ) : news ? (
+          <div className="space-y-3">
+            {news.intro && (
+              <p className="text-sm text-gray-600 dark:text-gray-400 italic">{news.intro}</p>
+            )}
+            <ul className="space-y-3">
+              {news.stories.map((story, i) => (
+                <li key={i} className="flex gap-3">
+                  <span className="text-cyan-500 font-black text-sm shrink-0 mt-0.5">{i + 1}.</span>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900 dark:text-white leading-snug">{story.headline}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 leading-relaxed">{story.brief}</p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : (
+          <p className="text-gray-500 text-sm">Loading today's top stories...</p>
         )}
       </div>
 
