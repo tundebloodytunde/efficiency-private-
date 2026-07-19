@@ -19,7 +19,25 @@ interface CalEvent {
   source?: string;
 }
 
+interface DayForecast {
+  code: number;
+  max: number;
+  min: number;
+}
+
 type ViewMode = 'month' | 'week' | 'day';
+
+function wxIcon(code: number): string {
+  if (code === 0) return '☀️';
+  if (code <= 2) return '⛅';
+  if (code === 3) return '☁️';
+  if (code <= 48) return '🌫️';
+  if (code <= 55) return '🌦️';
+  if (code <= 67) return '🌧️';
+  if (code <= 77) return '❄️';
+  if (code <= 82) return '🌦️';
+  return '⛈️';
+}
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -84,6 +102,7 @@ export default function CalendarPage() {
   const [syncing, setSyncing] = useState(false);
   const [syncMsg, setSyncMsg] = useState('');
   const [refreshing, setRefreshing] = useState(false);
+  const [forecast, setForecast] = useState<Record<string, DayForecast>>({});
 
   const today = new Date();
 
@@ -127,6 +146,36 @@ export default function CalendarPage() {
     function onVisible() { if (document.visibilityState === 'visible') loadCalendarData(); }
     document.addEventListener('visibilitychange', onVisible);
     const poll = setInterval(loadCalendarData, 10 * 60 * 1000);
+
+    // Load weather forecast via geolocation + Open-Meteo
+    const WX_KEY = 'wx-forecast-v1';
+    const WX_TTL = 60 * 60 * 1000; // 1 hour
+    try {
+      const cached = JSON.parse(localStorage.getItem(WX_KEY) ?? 'null');
+      if (cached && Date.now() - cached.ts < WX_TTL) {
+        setForecast(cached.data);
+      } else if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(async ({ coords }) => {
+          try {
+            const url =
+              `https://api.open-meteo.com/v1/forecast` +
+              `?latitude=${coords.latitude}&longitude=${coords.longitude}` +
+              `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
+              `&temperature_unit=fahrenheit&forecast_days=16&timezone=auto`;
+            const res = await fetch(url);
+            const json = await res.json();
+            const daily = json.daily as { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[] };
+            const map: Record<string, DayForecast> = {};
+            daily.time.forEach((date, i) => {
+              map[date] = { code: daily.weather_code[i], max: Math.round(daily.temperature_2m_max[i]), min: Math.round(daily.temperature_2m_min[i]) };
+            });
+            setForecast(map);
+            localStorage.setItem(WX_KEY, JSON.stringify({ ts: Date.now(), data: map }));
+          } catch { /* silently fail */ }
+        }, () => {}, { timeout: 8000 });
+      }
+    } catch { /* ignore */ }
+
     return () => {
       document.removeEventListener('visibilitychange', onVisible);
       clearInterval(poll);
@@ -229,9 +278,17 @@ export default function CalendarPage() {
               >
                 {valid && (
                   <>
-                    <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full ml-auto
-                      ${isToday ? 'bg-cyan-500 text-white' :'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
-                      {dayNum}
+                    <div className="flex items-start justify-between gap-1">
+                      <div className={`text-xs font-bold w-7 h-7 flex items-center justify-center rounded-full shrink-0
+                        ${isToday ? 'bg-cyan-500 text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
+                        {dayNum}
+                      </div>
+                      {date && forecast[date.toLocaleDateString('en-CA')] && (
+                        <div className="flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 leading-none pt-1.5 shrink-0">
+                          <span className="leading-none">{wxIcon(forecast[date.toLocaleDateString('en-CA')].code)}</span>
+                          <span>{forecast[date.toLocaleDateString('en-CA')].max}°</span>
+                        </div>
+                      )}
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
