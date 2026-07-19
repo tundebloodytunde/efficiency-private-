@@ -147,23 +147,18 @@ export default function CalendarPage() {
     document.addEventListener('visibilitychange', onVisible);
     const poll = setInterval(loadCalendarData, 10 * 60 * 1000);
 
-    // Load weather forecast via geolocation + Open-Meteo
-    const WX_KEY = 'wx-forecast-v1';
-    const WX_TTL = 60 * 60 * 1000; // 1 hour
+    // Load weather forecast via server route (IP-based, no browser permission needed)
+    const WX_KEY = 'wx-forecast-v2';
+    const WX_TTL = 60 * 60 * 1000;
     try {
       const cached = JSON.parse(localStorage.getItem(WX_KEY) ?? 'null');
       if (cached && Date.now() - cached.ts < WX_TTL) {
         setForecast(cached.data);
-      } else if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(async ({ coords }) => {
-          try {
-            const url =
-              `https://api.open-meteo.com/v1/forecast` +
-              `?latitude=${coords.latitude}&longitude=${coords.longitude}` +
-              `&daily=weather_code,temperature_2m_max,temperature_2m_min` +
-              `&temperature_unit=fahrenheit&forecast_days=16&timezone=auto`;
-            const res = await fetch(url);
-            const json = await res.json();
+      } else {
+        fetch('/api/weather?forecast=true')
+          .then(r => r.json())
+          .then(json => {
+            if (json.error || !json.daily) return;
             const daily = json.daily as { time: string[]; weather_code: number[]; temperature_2m_max: number[]; temperature_2m_min: number[] };
             const map: Record<string, DayForecast> = {};
             daily.time.forEach((date, i) => {
@@ -171,8 +166,8 @@ export default function CalendarPage() {
             });
             setForecast(map);
             localStorage.setItem(WX_KEY, JSON.stringify({ ts: Date.now(), data: map }));
-          } catch { /* silently fail */ }
-        }, () => {}, { timeout: 8000 });
+          })
+          .catch(() => { /* silently fail */ });
       }
     } catch { /* ignore */ }
 
