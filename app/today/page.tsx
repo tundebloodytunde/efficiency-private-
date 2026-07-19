@@ -300,7 +300,7 @@ export default function TodayPage() {
         {newsLoading ? (
           <div className="flex items-center gap-3 py-1">
             <div className="w-4 h-4 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin shrink-0" />
-            <p className="text-gray-500 text-sm">Fetching today's headlines...</p>
+            <p className="text-gray-500 text-sm">Fetching today&apos;s headlines...</p>
           </div>
         ) : newsError ? (
           <p className="text-red-500 text-sm">{newsError}</p>
@@ -322,7 +322,7 @@ export default function TodayPage() {
             </ul>
           </div>
         ) : (
-          <p className="text-gray-500 text-sm">Tap Load to fetch today's top stories.</p>
+          <p className="text-gray-500 text-sm">Tap Load to fetch today&apos;s top stories.</p>
         )}
       </div>
 
