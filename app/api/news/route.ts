@@ -70,12 +70,18 @@ Include 5-7 of the most significant stories. Return only valid JSON, no markdown
     }],
   });
 
-  const text = message.content.find(b => b.type === 'text')?.text ?? '';
+  const raw = message.content.find(b => b.type === 'text')?.text ?? '';
+
+  // Strip markdown fences if the model wrapped the JSON anyway
+  const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+
+  // Extract the outermost JSON object in case there's surrounding prose
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
 
   try {
-    const parsed = JSON.parse(text);
+    const parsed = JSON.parse(jsonMatch?.[0] ?? text);
     return NextResponse.json(parsed);
   } catch {
-    return NextResponse.json({ error: 'Failed to parse news summary' }, { status: 500 });
+    return NextResponse.json({ error: 'Failed to parse news summary', raw: text.slice(0, 200) }, { status: 500 });
   }
 }
