@@ -17,10 +17,9 @@ export default function Navigation() {
   const [darkMode, setDarkMode] = useState(true);
 
   useEffect(() => {
-    const stored = localStorage.getItem('darkMode');
-    const isDark = stored === null ? true : stored === 'true';
-    setDarkMode(isDark);
-    document.documentElement.classList.toggle('dark', isDark);
+    // Read from the actual class set by the inline <head> script rather than
+    // re-reading localStorage, so React state stays in sync with what's rendered.
+    setDarkMode(document.documentElement.classList.contains('dark'));
   }, []);
 
   const toggleDarkMode = () => {

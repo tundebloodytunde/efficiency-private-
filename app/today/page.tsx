@@ -24,11 +24,11 @@ interface Task {
 }
 
 const PRIORITY = {
-  4: { label: 'Urgent', bg: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30' },
-  3: { label: 'High', bg: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30' },
-  2: { label: 'Medium', bg: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30' },
-  1: { label: 'Low', bg: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30' },
-} as Record<number, { label: string; bg: string }>;
+  4: { label: 'Urgent', bg: 'bg-red-500/20 text-red-600 dark:text-red-400 border border-red-500/30', bar: 'bg-red-500' },
+  3: { label: 'High',   bg: 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border border-orange-500/30', bar: 'bg-orange-400' },
+  2: { label: 'Medium', bg: 'bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 border border-yellow-500/30', bar: 'bg-yellow-400' },
+  1: { label: 'Low',    bg: 'bg-gray-500/20 text-gray-600 dark:text-gray-400 border border-gray-500/30', bar: 'bg-gray-400' },
+} as Record<number, { label: string; bg: string; bar: string }>;
 
 const SNOOZE_OPTIONS = [
   { label: 'Tomorrow',    due: 'tomorrow' },
@@ -52,13 +52,18 @@ export default function TodayPage() {
   const [triageLoading, setTriageLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [snoozeOpen, setSnoozeOpen] = useState<string | null>(null);
+  const [completing, setCompleting] = useState<Set<string>>(new Set());
+  const [completedCount, setCompletedCount] = useState(0);
+  const [initialCount, setInitialCount] = useState(0);
   const [news, setNews] = useState<NewsRoundup | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState('');
   const snoozeRef = useRef<HTMLDivElement>(null);
 
-  const today = new Date();
-  const dateLabel = today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+  // Use ET timezone so the date label matches the task-filter timezone
+  const dateLabel = new Date().toLocaleDateString('en-US', {
+    weekday: 'long', month: 'long', day: 'numeric', timeZone: 'America/New_York',
+  });
 
   async function loadTasks(silent = false) {
     if (!silent) setLoading(true);
@@ -67,7 +72,9 @@ export default function TodayPage() {
       const res = await fetch('/api/todoist');
       const data = await res.json();
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      setTasks(Array.isArray(data) ? data.filter((t: Task) => t.due?.date?.startsWith(todayStr)) : []);
+      const filtered = Array.isArray(data) ? data.filter((t: Task) => t.due?.date?.startsWith(todayStr)) : [];
+      setTasks(filtered);
+      if (!silent) { setInitialCount(filtered.length); setCompletedCount(0); }
     } catch {
       setTasks([]);
     }
@@ -130,22 +137,32 @@ export default function TodayPage() {
   }, []);
 
   async function markDone(taskId: string) {
-    setTasks(prev => prev.filter(t => t.id !== taskId));
-    await fetch('/api/todoist', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'complete', taskId }),
-    });
+    setCompleting(prev => new Set([...prev, taskId]));
+    const [res] = await Promise.all([
+      fetch('/api/todoist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', taskId }),
+      }),
+      new Promise<void>(r => setTimeout(r, 280)),
+    ]);
+    if (res.ok) {
+      setTasks(prev => prev.filter(t => t.id !== taskId));
+      setCompletedCount(c => c + 1);
+    }
+    setCompleting(prev => { const s = new Set(prev); s.delete(taskId); return s; });
   }
 
   async function snoozeTask(taskId: string, dueString: string) {
     setSnoozeOpen(null);
+    const snapshot = tasks;
     setTasks(prev => prev.filter(t => t.id !== taskId));
-    await fetch('/api/todoist', {
+    const res = await fetch('/api/todoist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'reschedule', taskId, due_string: dueString }),
     });
+    if (!res.ok) setTasks(snapshot);
   }
 
   async function createTask(e: React.FormEvent) {
@@ -214,11 +231,32 @@ export default function TodayPage() {
     setTriageLoading(false);
   }
 
+  const progress = initialCount > 0 ? completedCount / initialCount : 0;
+
+  function TaskSkeleton() {
+    return (
+      <div className="space-y-3">
+        {[0.9, 0.65, 0.4].map((opacity, i) => (
+          <div key={i} className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/5 rounded-2xl px-5 py-4 flex justify-between items-center" style={{ opacity }}>
+            <div className="flex-1 mr-4">
+              <div className="h-4 bg-gray-200 dark:bg-white/10 rounded-lg animate-pulse mb-2.5" style={{ width: `${65 + i * 10}%` }} />
+              <div className="h-3 bg-gray-200 dark:bg-white/10 rounded-lg animate-pulse w-20" />
+            </div>
+            <div className="w-8 h-8 rounded-full bg-gray-200 dark:bg-white/10 animate-pulse shrink-0" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   if (loading) return (
-    <div className="py-20 text-center">
-      <div className="w-8 h-8 border-2 border-violet-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-      <p className="text-gray-500">Loading your day...</p>
-    </div>
+    <>
+      <div className="mb-8">
+        <div className="h-4 w-36 bg-gray-200 dark:bg-white/10 rounded animate-pulse mb-2" />
+        <div className="h-12 w-48 bg-gray-200 dark:bg-white/10 rounded-xl animate-pulse" />
+      </div>
+      <TaskSkeleton />
+    </>
   );
 
   return (
@@ -234,7 +272,19 @@ export default function TodayPage() {
             <h1 className="text-4xl sm:text-5xl font-black tracking-tight bg-gradient-to-r from-violet-400 via-pink-400 to-cyan-400 bg-clip-text text-transparent">
               Today
             </h1>
-            <p className="text-gray-500 mt-1">{tasks.length} task{tasks.length !== 1 ? 's' : ''} due</p>
+            <p className="text-gray-500 mt-1 text-sm">
+              {completedCount > 0
+                ? `${completedCount} done · ${tasks.length} remaining`
+                : `${tasks.length} task${tasks.length !== 1 ? 's' : ''} due`}
+            </p>
+            {initialCount > 0 && (
+              <div className="mt-2 h-1 w-32 bg-gray-200 dark:bg-white/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-gradient-to-r from-violet-500 to-pink-500 rounded-full transition-all duration-500"
+                  style={{ width: `${progress * 100}%` }}
+                />
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -385,18 +435,31 @@ export default function TodayPage() {
       <div className="space-y-3" ref={snoozeRef}>
         {tasks.length === 0 ? (
           <div className="rounded-3xl p-16 text-center border border-gray-200 dark:border-white/5 bg-gray-100 dark:bg-white/5">
-            <p className="text-4xl mb-3">🎉</p>
-            <p className="text-xl font-semibold text-gray-900 dark:text-white">Clear day ahead</p>
-            <p className="text-gray-500 mt-1">No tasks due today</p>
+            <p className="text-4xl mb-3">{completedCount > 0 ? '🏆' : '🎉'}</p>
+            <p className="text-xl font-semibold text-gray-900 dark:text-white">
+              {completedCount > 0 ? `${completedCount} task${completedCount !== 1 ? 's' : ''} done!` : 'Clear day ahead'}
+            </p>
+            <p className="text-gray-500 mt-1 text-sm">
+              {completedCount > 0 ? 'Nothing left for today.' : 'No tasks due today.'}
+            </p>
           </div>
         ) : (
           tasks.map(task => {
             const p = PRIORITY[task.priority] ?? PRIORITY[1];
+            const isCompleting = completing.has(task.id);
             return (
-              <div key={task.id} className="group relative bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl px-5 py-4 flex justify-between items-center transition-all">
-                <div className="flex-1 min-w-0 mr-4">
-                  <div className="font-semibold text-gray-900 dark:text-white">{task.content}</div>
-                  <div className="flex items-center gap-2 mt-1.5">
+              <div
+                key={task.id}
+                className={`group relative bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl pl-4 pr-5 py-4 flex justify-between items-center transition-all overflow-hidden shadow-sm hover:shadow dark:shadow-none ${isCompleting ? 'task-completing' : ''}`}
+              >
+                {/* Priority accent bar */}
+                <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${p.bar} opacity-60`} />
+
+                <div className="flex-1 min-w-0 mr-4 ml-2">
+                  <div className={`font-semibold text-gray-900 dark:text-white transition-all ${isCompleting ? 'line-through opacity-40' : ''}`}>
+                    {task.content}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1.5 flex-wrap">
                     <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.bg}`}>
                       {p.label}
                     </span>
@@ -404,7 +467,7 @@ export default function TodayPage() {
                       <span className="text-xs text-gray-500">{task.due.string}</span>
                     )}
                     {task.description && (
-                      <span className="text-xs text-gray-500 truncate">{task.description}</span>
+                      <span className="text-xs text-gray-500 truncate max-w-[180px]">{task.description}</span>
                     )}
                   </div>
                 </div>
@@ -445,7 +508,9 @@ export default function TodayPage() {
                   </div>
                   <button
                     onClick={() => markDone(task.id)}
-                    className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm"
+                    disabled={isCompleting}
+                    className="w-8 h-8 rounded-full border-2 border-gray-300 dark:border-white/20 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm active:scale-90 disabled:cursor-not-allowed"
+                    aria-label="Mark done"
                   >
                     ✓
                   </button>

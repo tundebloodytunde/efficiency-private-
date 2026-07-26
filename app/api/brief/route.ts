@@ -17,8 +17,24 @@ function parseICSForToday(ics: string, todayStr: string) {
     const allDay = dtstart.length === 8;
     let time = 'All day';
     if (!allDay) {
-      const d = new Date(dtstart.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/, '$1-$2-$3T$4:$5:$6Z'));
-      time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const iso = dtstart.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6');
+      let d: Date;
+      if (dtstart.endsWith('Z')) {
+        d = new Date(iso);
+      } else {
+        // Floating / TZID — treat as America/New_York local time
+        const utcProxy = new Date(iso + 'Z');
+        const fmt = new Intl.DateTimeFormat('en-CA', {
+          timeZone: 'America/New_York',
+          year: 'numeric', month: '2-digit', day: '2-digit',
+          hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+        });
+        const p = Object.fromEntries(fmt.formatToParts(utcProxy).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+        const etRepr = `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+        const offsetMs = utcProxy.getTime() - new Date(etRepr + 'Z').getTime();
+        d = new Date(new Date(iso + 'Z').getTime() - offsetMs);
+      }
+      time = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'America/New_York' });
     }
     events.push({ title: summary, time });
   }
@@ -76,8 +92,8 @@ export async function POST() {
 
   const stream = client.messages.stream({
     model: 'claude-opus-4-8',
-    max_tokens: 600,
-    thinking: { type: 'adaptive' },
+    max_tokens: 1600,
+    thinking: { type: 'enabled', budget_tokens: 1024 },
     system: `You are a concise personal productivity assistant. Generate a practical daily briefing in 3-4 short paragraphs based on the user's full schedule for today — both calendar events and tasks. Cover:
 1. A one-sentence opener that frames the day based on what's ahead.
 2. Key calendar commitments and when they occur.

@@ -30,6 +30,7 @@ export default function QuickCapture() {
   const [dueTime, setDueTime] = useState('');
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   // Note state
   const [noteText, setNoteText] = useState('');
@@ -157,12 +158,17 @@ export default function QuickCapture() {
     if (!content.trim()) return;
     stopListening();
     setSaving(true);
-    await fetch('/api/todoist', {
+    setSaveError('');
+    const res = await fetch('/api/todoist', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ action: 'create', content, priority, due_string: buildDueString() }),
     });
     setSaving(false);
+    if (!res.ok) {
+      setSaveError('Failed to save. Check your connection and try again.');
+      return;
+    }
     setSaved(true);
     setContent(''); setPriority(1); setDue(''); setDueTime('');
     setTimeout(() => { setSaved(false); setOpen(false); }, 800);
@@ -297,14 +303,17 @@ export default function QuickCapture() {
                       />
                       {dueTime && <button type="button" onClick={() => setDueTime('')} className="text-xs text-gray-400 hover:text-red-400 transition px-2 py-2">✕</button>}
                     </div>
+                    {saveError && (
+                      <p className="text-red-500 text-xs py-1">{saveError}</p>
+                    )}
                     <div className="flex gap-3 pt-1">
                       <button type="button" onClick={handleClose}
                         className="flex-1 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl text-gray-500 hover:text-gray-900 hover:border-gray-300 dark:text-gray-400 dark:hover:text-white dark:hover:border-white/20 transition text-sm font-medium">
                         Cancel
                       </button>
                       <button type="submit" disabled={saving}
-                        className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 text-sm">
-                        {saving ? 'Saving...' : 'Add Task →'}
+                        className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 text-sm active:scale-95">
+                        {saving ? 'Saving…' : saveError ? 'Retry →' : 'Add Task →'}
                       </button>
                     </div>
                   </form>
