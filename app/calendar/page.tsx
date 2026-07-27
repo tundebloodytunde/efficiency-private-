@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 interface Task {
   id: string;
@@ -315,40 +315,79 @@ export default function CalendarPage() {
   function TimeGrid({ days }: { days: Date[] }) {
     const nowMinutes = today.getHours() * 60 + today.getMinutes();
     const nowTop = (nowMinutes / 60) * 56;
+    const inWeekView = days.length > 1;
+    const scrollRef = useRef<HTMLDivElement>(null);
+
+    // Auto-scroll: show 1 hour before now (or 7 AM minimum) on mount
+    useEffect(() => {
+      if (!scrollRef.current) return;
+      const target = Math.max(today.getHours() - 1, 7) * 56;
+      scrollRef.current.scrollTop = target;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
-      <div className="bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden">
-        {/* Header */}
-        <div className={`grid border-b border-white/10`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+      <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden shadow-sm dark:shadow-none">
+        {/* Header row */}
+        <div className="grid border-b border-gray-200 dark:border-white/10" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
           <div />
           {days.map((d, i) => {
             const isToday = isSameDay(d, today);
-            const inWeekView = days.length > 1;
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
+            const dayTasks = tasksForDate(d);
+            const dayEvents = eventsForDate(d);
+            const hasDots = inWeekView && (dayEvents.length > 0 || dayTasks.length > 0);
+
             return (
               <div
                 key={i}
-                className={`text-center py-3 border-l border-white/5 ${inWeekView ? 'cursor-pointer hover:bg-white/5 transition-colors' : ''}`}
+                className={`text-center py-3 border-l border-gray-200 dark:border-white/10 transition-colors select-none
+                  ${inWeekView ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5' : ''}
+                  ${isToday && inWeekView ? 'bg-cyan-50 dark:bg-cyan-500/[0.07]' : ''}
+                `}
                 onClick={inWeekView ? () => { setView('day'); setCurrentDate(d); } : undefined}
-                title={inWeekView ? `Open ${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })}` : undefined}
               >
-                <div className="text-xs font-semibold text-gray-500 uppercase tracking-widest">{DAY_NAMES[d.getDay()]}</div>
-                <div className={`text-xl font-black mt-0.5 mx-auto w-9 h-9 flex items-center justify-center rounded-full transition-all
-                  ${isToday ? 'bg-cyan-500 text-white' : 'text-gray-900 dark:text-white'} ${inWeekView ? 'group-hover:scale-110' : ''}`}>
+                <div className={`text-[10px] font-bold uppercase tracking-widest mb-0.5 ${isWeekend ? 'text-gray-400 dark:text-gray-600' : 'text-gray-400 dark:text-gray-500'}`}>
+                  {DAY_NAMES[d.getDay()]}
+                </div>
+                <div className={`text-lg font-black mx-auto w-9 h-9 flex items-center justify-center rounded-full transition-all
+                  ${isToday
+                    ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/40'
+                    : isWeekend
+                    ? 'text-gray-400 dark:text-gray-500'
+                    : 'text-gray-900 dark:text-white hover:bg-gray-100 dark:hover:bg-white/10'
+                  }`}>
                   {d.getDate()}
                 </div>
+                {/* Dot indicators */}
+                {hasDots && (
+                  <div className="flex items-center justify-center gap-0.5 mt-1.5 h-2">
+                    {dayEvents.slice(0, 4).map((e, j) => (
+                      <div key={j} className={`w-1.5 h-1.5 rounded-full ${eventDot(e.source)} opacity-80`} />
+                    ))}
+                    {dayTasks.slice(0, Math.max(0, 4 - dayEvents.length)).map((t, j) => (
+                      <div key={`t${j}`} className={`w-1.5 h-1.5 rounded-full ${priorityColor(t.priority)} opacity-80`} />
+                    ))}
+                    {(dayEvents.length + dayTasks.length) > 4 && (
+                      <div className="w-1.5 h-1.5 rounded-full bg-gray-400 opacity-50" />
+                    )}
+                  </div>
+                )}
               </div>
             );
           })}
         </div>
 
-        {/* All-day row — holidays always trigger this */}
+        {/* All-day row */}
         {days.some(d => eventsForDate(d).some(e => e.allDay)) && (
-          <div className={`grid border-b border-white/10 min-h-[32px]`} style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
-            <div className="text-xs text-gray-400 dark:text-gray-600 flex items-center justify-end pr-2 py-1">all-day</div>
+          <div className="grid border-b border-gray-200 dark:border-white/10 min-h-[34px]" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
+            <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-600 flex items-center justify-end pr-2 py-1.5 uppercase tracking-widest">
+              all‑day
+            </div>
             {days.map((d, i) => (
-              <div key={i} className="border-l border-white/5 px-1 py-1 space-y-0.5">
+              <div key={i} className={`border-l border-gray-200 dark:border-white/10 px-1 py-1 space-y-0.5 ${isSameDay(d, today) && inWeekView ? 'bg-cyan-50 dark:bg-cyan-500/[0.07]' : ''}`}>
                 {eventsForDate(d).filter(e => e.allDay).map(e => (
-                  <div key={e.id} className={`text-xs px-2 py-0.5 rounded font-medium truncate ${chipBg(e.source)}`}>
+                  <div key={e.id} className={`text-xs px-2 py-0.5 rounded-md font-semibold truncate ${chipBg(e.source)}`}>
                     {e.title}
                   </div>
                 ))}
@@ -358,13 +397,17 @@ export default function CalendarPage() {
         )}
 
         {/* Scrollable time grid */}
-        <div className="overflow-y-auto max-h-[600px]" style={{ scrollbarWidth: 'thin' }}>
-          {/* Grid: time label col + day cols */}
+        <div ref={scrollRef} className="overflow-y-auto max-h-[620px]" style={{ scrollbarWidth: 'thin' }}>
           <div className="grid" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)`, height: `${24 * 56}px` }}>
-            {/* Time labels column */}
-            <div className="relative">
+
+            {/* Time label column */}
+            <div className="relative select-none">
               {HOURS.map(h => (
-                <div key={h} className="absolute w-full text-right pr-2 text-xs text-gray-400 dark:text-gray-600" style={{ top: `${h * 56 - 9}px` }}>
+                <div
+                  key={h}
+                  className="absolute w-full text-right pr-3 text-[10px] font-semibold text-gray-400 dark:text-gray-600 uppercase"
+                  style={{ top: `${h * 56 - 8}px` }}
+                >
                   {h > 0 ? formatHour(h) : ''}
                 </div>
               ))}
@@ -374,39 +417,72 @@ export default function CalendarPage() {
             {days.map((d, colIdx) => {
               const colEvents = eventsForDate(d).filter(e => !e.allDay);
               const colTasks = tasksForDate(d).filter(t => t.due?.date && t.due.date.length > 10);
-              const isCol = days.some(day => isSameDay(day, today)) && isSameDay(d, today);
+              const isCol = isSameDay(d, today);
+              const nowHour = today.getHours();
 
               return (
-                <div key={colIdx} className="relative border-l border-gray-200 dark:border-white/10">
-                  {/* Hour lines */}
+                <div
+                  key={colIdx}
+                  className={`relative border-l border-gray-200 dark:border-white/10
+                    ${isCol && inWeekView ? 'bg-cyan-500/[0.025]' : ''}
+                  `}
+                >
+                  {/* Hour grid lines */}
                   {HOURS.map(h => (
-                    <div key={h} className="absolute left-0 right-0 border-t border-gray-200 dark:border-white/10" style={{ top: `${h * 56}px` }} />
+                    <div
+                      key={h}
+                      className={`absolute left-0 right-0 border-t transition-colors
+                        ${isCol && h === nowHour
+                          ? 'border-cyan-200 dark:border-cyan-900/60'
+                          : 'border-gray-100 dark:border-white/[0.07]'
+                        }`}
+                      style={{ top: `${h * 56}px` }}
+                    />
                   ))}
-                  {/* Half-hour lines */}
+                  {/* Half-hour dashes */}
                   {HOURS.map(h => (
-                    <div key={`hh${h}`} className="absolute left-0 right-0 border-t border-gray-100 dark:border-white/[0.06]" style={{ top: `${h * 56 + 28}px` }} />
+                    <div
+                      key={`hh${h}`}
+                      className="absolute left-8 right-0 border-t border-dashed border-gray-100 dark:border-white/[0.04]"
+                      style={{ top: `${h * 56 + 28}px` }}
+                    />
                   ))}
 
-                  {/* Current time line */}
+                  {/* Subtle past-time wash */}
                   {isCol && (
-                    <div className="absolute left-0 right-0 flex items-center z-20" style={{ top: `${nowTop}px` }}>
-                      <div className="w-2 h-2 rounded-full bg-red-400 shrink-0" />
-                      <div className="flex-1 border-t border-red-400/70" />
+                    <div
+                      className="absolute left-0 right-0 top-0 bg-black/[0.015] dark:bg-black/[0.15] pointer-events-none"
+                      style={{ height: `${nowTop}px` }}
+                    />
+                  )}
+
+                  {/* Current time indicator */}
+                  {isCol && (
+                    <div
+                      className="absolute left-0 right-0 flex items-center z-20 pointer-events-none"
+                      style={{ top: `${nowTop - 1}px` }}
+                    >
+                      <div className="w-3 h-3 rounded-full bg-red-500 shrink-0 shadow-[0_0_0_3px_rgba(239,68,68,0.25)] pulse-ring -ml-1.5" />
+                      <div className="flex-1 border-t-2 border-red-500/80" />
                     </div>
                   )}
 
                   {/* Calendar events */}
-                  {colEvents.map(e => (
-                    <div
-                      key={e.id}
-                      className={`absolute left-0.5 right-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition z-10 ${eventBg(e.source)}`}
-                      style={{ top: `${eventTop(e.start)}px`, height: `${Math.max(eventHeight(e.start, e.end), 22)}px` }}
-                      onClick={ev => { ev.stopPropagation(); openDay(d); }}
-                    >
-                      <div className="truncate">{e.title}</div>
-                      <div className="text-white/70 text-[10px]">{formatTime(e)}</div>
-                    </div>
-                  ))}
+                  {colEvents.map(e => {
+                    const h = Math.max(eventHeight(e.start, e.end), 26);
+                    const compact = h < 44;
+                    return (
+                      <div
+                        key={e.id}
+                        className={`absolute left-1 right-0.5 rounded-xl px-2 overflow-hidden cursor-pointer border-l-[3px] hover:brightness-110 active:scale-[0.98] transition z-10 ${eventBg(e.source)}`}
+                        style={{ top: `${eventTop(e.start)}px`, height: `${h}px`, paddingTop: '3px', paddingBottom: '3px' }}
+                        onClick={ev => { ev.stopPropagation(); openDay(d); }}
+                      >
+                        <div className={`font-semibold text-white leading-tight truncate ${compact ? 'text-[10px]' : 'text-xs'}`}>{e.title}</div>
+                        {!compact && <div className="text-white/65 text-[10px] mt-0.5">{formatTime(e)}</div>}
+                      </div>
+                    );
+                  })}
 
                   {/* Timed tasks */}
                   {colTasks.map(t => {
@@ -415,8 +491,8 @@ export default function CalendarPage() {
                     return (
                       <div
                         key={t.id}
-                        className={`absolute left-0.5 right-0.5 rounded-lg px-2 py-1 text-xs font-semibold text-white border-l-2 overflow-hidden cursor-pointer hover:brightness-110 transition z-10 ${priorityColor(t.priority)} ${priorityBorder(t.priority)}`}
-                        style={{ top: `${top}px`, height: '28px' }}
+                        className={`absolute left-1 right-0.5 rounded-xl px-2 py-1 text-[10px] font-semibold text-white border-l-[3px] overflow-hidden cursor-pointer hover:brightness-110 active:scale-[0.98] transition z-10 ${priorityColor(t.priority)} ${priorityBorder(t.priority)}`}
+                        style={{ top: `${top}px`, height: '26px' }}
                         onClick={ev => { ev.stopPropagation(); openDay(d); }}
                       >
                         <div className="truncate">{t.content}</div>
@@ -439,17 +515,31 @@ export default function CalendarPage() {
   }
 
   function DayView() {
+    const dayTasks = tasksForDate(currentDate);
+    const allDayTasks = dayTasks.filter(t => !t.due?.date || t.due.date.length === 10);
+    const PRIORITY_TEXT: Record<number, string> = {
+      4: 'text-red-500 dark:text-red-400',
+      3: 'text-orange-500 dark:text-orange-400',
+      2: 'text-yellow-600 dark:text-yellow-400',
+      1: 'text-blue-500 dark:text-blue-400',
+    };
+    const PRIORITY_LABEL: Record<number, string> = { 4: 'Urgent', 3: 'High', 2: 'Medium', 1: 'Low' };
+
     return (
       <div>
-        {/* Date tasks summary */}
-        {tasksForDate(currentDate).length > 0 && (
-          <div className="mb-4 bg-white/5 border border-white/10 rounded-2xl p-4">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-widest mb-2">Tasks today</p>
-            <div className="space-y-1.5">
-              {tasksForDate(currentDate).filter(t => !t.due?.date || t.due.date.length === 10).map(t => (
-                <div key={t.id} className="flex items-center gap-2">
-                  <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
-                  <span className="text-sm text-gray-800 dark:text-gray-200">{t.content}</span>
+        {allDayTasks.length > 0 && (
+          <div className="mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
+            <div className="px-4 pt-3 pb-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-white/[0.06]">
+              <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Tasks due today</span>
+              <span className="ml-auto text-[11px] font-semibold text-gray-400 dark:text-gray-500 tabular-nums">{allDayTasks.length}</span>
+            </div>
+            <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
+              {allDayTasks.map(t => (
+                <div key={t.id} className={`flex items-center gap-3 pl-3.5 pr-4 py-3 border-l-[3px] ${priorityBorder(t.priority)}`}>
+                  <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{t.content}</span>
+                  <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${PRIORITY_TEXT[t.priority] ?? 'text-blue-400'}`}>
+                    {PRIORITY_LABEL[t.priority] ?? 'Low'}
+                  </span>
                 </div>
               ))}
             </div>
