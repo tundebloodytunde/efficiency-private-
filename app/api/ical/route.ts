@@ -67,9 +67,21 @@ function parseICS(ics: string) {
     const allDay = dtstart.length === 8;
     const parseDate = (d: string) => {
       if (d.length === 8) return `${d.slice(0, 4)}-${d.slice(4, 6)}-${d.slice(6, 8)}`;
-      return new Date(
-        d.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})Z?/, '$1-$2-$3T$4:$5:$6Z')
-      ).toISOString();
+      const iso = d.replace(/(\d{4})(\d{2})(\d{2})T(\d{2})(\d{2})(\d{2})/, '$1-$2-$3T$4:$5:$6');
+      // UTC datetime (ends with Z): parse directly
+      if (d.endsWith('Z')) return new Date(iso).toISOString();
+      // Floating / TZID local time — iCloud uses America/New_York for ET events.
+      // Find the ET↔UTC offset at this moment and apply it.
+      const utcProxy = new Date(iso + 'Z');
+      const fmt = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+      });
+      const p = Object.fromEntries(fmt.formatToParts(utcProxy).filter(x => x.type !== 'literal').map(x => [x.type, x.value]));
+      const etRepr = `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}`;
+      const offsetMs = utcProxy.getTime() - new Date(etRepr + 'Z').getTime();
+      return new Date(new Date(iso + 'Z').getTime() - offsetMs).toISOString();
     };
 
     events.push({
