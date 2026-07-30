@@ -53,10 +53,12 @@ export async function POST() {
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
   const client = new Anthropic();
 
-  const message = await client.messages.create({
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1024,
-    system: `You are a concise news editor. Given a list of today's top headlines, produce a structured daily news roundup as valid JSON in this exact shape:
+  let message;
+  try {
+    message = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 1024,
+      system: `You are a concise news editor. Given a list of today's top headlines, produce a structured daily news roundup as valid JSON in this exact shape:
 {
   "intro": "one sentence framing the day's biggest themes",
   "stories": [
@@ -64,11 +66,15 @@ export async function POST() {
   ]
 }
 Include 5-7 of the most significant stories. Return only valid JSON, no markdown fences.`,
-    messages: [{
-      role: 'user',
-      content: `Today is ${today}.\n\nHeadlines:\n${headlines.slice(0, 24).join('\n')}`,
-    }],
-  });
+      messages: [{
+        role: 'user',
+        content: `Today is ${today}.\n\nHeadlines:\n${headlines.slice(0, 24).join('\n')}`,
+      }],
+    });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: `Anthropic API error: ${msg}` }, { status: 500 });
+  }
 
   const raw = message.content.find(b => b.type === 'text')?.text ?? '';
 
