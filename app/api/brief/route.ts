@@ -90,27 +90,29 @@ export async function POST() {
 
   const client = new Anthropic();
 
-  const stream = client.messages.stream({
-    model: 'claude-opus-4-8',
-    max_tokens: 1600,
-    thinking: { type: 'enabled', budget_tokens: 1024 },
-    system: `You are a concise personal productivity assistant. Generate a practical daily briefing in 3-4 short paragraphs based on the user's full schedule for today — both calendar events and tasks. Cover:
+  try {
+    const message = await client.messages.create({
+      model: 'claude-sonnet-5',
+      max_tokens: 1024,
+      system: `You are a concise personal productivity assistant. Generate a practical daily briefing in 3-4 short paragraphs based on the user's full schedule for today — both calendar events and tasks. Cover:
 1. A one-sentence opener that frames the day based on what's ahead.
 2. Key calendar commitments and when they occur.
 3. Top tasks to tackle and when to fit them in around the schedule.
 4. A closing note on realistic workload.
 Write in plain prose, no markdown headers or bullet points. Be specific about times and task names.`,
-    messages: [
-      {
-        role: 'user',
-        content: `Today is ${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.\n\nSchedule:\n${eventLines}\n\nTasks due today:\n${taskLines}`,
-      },
-    ],
-  });
+      messages: [
+        {
+          role: 'user',
+          content: `Today is ${today.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}.\n\nSchedule:\n${eventLines}\n\nTasks due today:\n${taskLines}`,
+        },
+      ],
+    });
 
-  const message = await stream.finalMessage();
-  const textBlock = message.content.find((b) => b.type === 'text');
-  const brief = textBlock && textBlock.type === 'text' ? textBlock.text : '';
-
-  return NextResponse.json({ brief });
+    const textBlock = message.content.find((b) => b.type === 'text');
+    const brief = textBlock && textBlock.type === 'text' ? textBlock.text : '';
+    return NextResponse.json({ brief });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    return NextResponse.json({ error: `Failed to generate brief: ${msg}` }, { status: 500 });
+  }
 }
