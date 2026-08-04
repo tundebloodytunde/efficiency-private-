@@ -46,6 +46,7 @@ export default function TodayPage() {
   const [formError, setFormError] = useState('');
   const [brief, setBrief] = useState('');
   const [briefLoading, setBriefLoading] = useState(false);
+  const [briefError, setBriefError] = useState('');
   const [newTask, setNewTask] = useState({ content: '', priority: 1, due_string: '' });
   const [notes, setNotes] = useState<Note[]>([]);
   const [triage, setTriage] = useState<TriageResult | null>(null);
@@ -205,16 +206,22 @@ export default function TodayPage() {
   async function generateBrief() {
     setBriefLoading(true);
     setBrief('');
+    setBriefError('');
     try {
       const res = await fetch('/api/brief', { method: 'POST' });
       const data = await res.json();
-      const text = data.brief || data.error || 'No response received.';
+      if (data.error) {
+        setBriefError(data.error);
+        return;
+      }
+      const text = data.brief || '';
       setBrief(text);
-      localStorage.setItem(`dailyBrief-${todayKey()}`, text);
+      if (text) localStorage.setItem(`dailyBrief-${todayKey()}`, text);
     } catch {
-      setBrief('Failed to generate brief.');
+      setBriefError('Could not connect. Tap Retry to try again.');
+    } finally {
+      setBriefLoading(false);
     }
-    setBriefLoading(false);
   }
 
   async function runTriage() {
@@ -317,7 +324,7 @@ export default function TodayPage() {
             disabled={briefLoading}
             className="text-sm bg-violet-600 hover:bg-violet-500 text-white px-4 py-1.5 rounded-xl font-medium transition disabled:opacity-50"
           >
-            {briefLoading ? 'Thinking...' : brief ? 'Refresh' : 'Generate'}
+            {briefLoading ? 'Thinking...' : briefError ? 'Retry' : brief ? 'Refresh' : 'Generate'}
           </button>
         </div>
         {briefLoading ? (
@@ -325,6 +332,8 @@ export default function TodayPage() {
             <div className="w-4 h-4 border-2 border-violet-500 border-t-transparent rounded-full animate-spin shrink-0" />
             <p className="text-gray-500 text-sm">Generating your briefing...</p>
           </div>
+        ) : briefError ? (
+          <p className="text-red-500 text-sm">{briefError}</p>
         ) : brief ? (
           <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line text-sm">{brief}</p>
         ) : (
