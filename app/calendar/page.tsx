@@ -6,7 +6,7 @@ interface Task {
   id: string;
   content: string;
   priority: number;
-  due?: { date: string } | null;
+  due?: { date: string; is_recurring?: boolean; string?: string } | null;
 }
 
 interface CalEvent {
@@ -91,6 +91,74 @@ function getWeekStart(d: Date) {
   copy.setDate(d.getDate() - d.getDay());
   copy.setHours(0, 0, 0, 0);
   return copy;
+}
+
+const WEEKDAY_INDEX: Record<string, number> = {
+  sun: 0, mon: 1, tue: 2, tues: 2, wed: 3, wednes: 3, thu: 4, thur: 4, thurs: 4, fri: 5, sat: 6, satur: 6,
+};
+
+function dateOnly(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate());
+}
+
+// Matches a Todoist recurrence string (e.g. "every tuesday at 12pm", "every weekday at 6am",
+// "every day at 8pm") against a candidate date, for common patterns only.
+function matchesRecurrence(rule: string, diffDays: number, targetDow: number, anchorDow: number): boolean {
+  const r = rule.toLowerCase();
+
+  const weekdayMatch = r.match(/every\s+(sun|mon|tue|tues|wed|wednes|thu|thur|thurs|fri|sat|satur)(day)?\b/);
+  if (weekdayMatch) return WEEKDAY_INDEX[weekdayMatch[1]] === targetDow;
+
+  if (/every\s+weekday/.test(r)) return targetDow >= 1 && targetDow <= 5;
+  if (/every\s+day/.test(r)) return true;
+
+  const nDays = r.match(/every\s+(\d+)\s+days?/);
+  if (nDays) {
+    const n = parseInt(nDays[1], 10);
+    return n > 0 && diffDays % n === 0;
+  }
+
+  const nWeeks = r.match(/every\s+(\d+)\s+weeks?/);
+  if (nWeeks) {
+    const n = parseInt(nWeeks[1], 10);
+    return n > 0 && targetDow === anchorDow && diffDays % (7 * n) === 0;
+  }
+
+  return false;
+}
+
+// Does a task occur on the given day? True for its anchor due date, and — for recurring
+// tasks — for every future day matching its recurrence rule (Todoist's API only ever
+// returns the single next due date, not a projected series).
+function occursOn(task: Task, target: Date): boolean {
+  if (!task.due?.date) return false;
+  const anchor = new Date(task.due.date);
+  const anchorDay = dateOnly(anchor);
+  const targetDay = dateOnly(target);
+  if (anchorDay.getTime() === targetDay.getTime()) return true;
+  if (!task.due.is_recurring || !task.due.string) return false;
+  if (targetDay.getTime() < anchorDay.getTime()) return false;
+
+  const diffDays = Math.round((targetDay.getTime() - anchorDay.getTime()) / 86400000);
+  return matchesRecurrence(task.due.string, diffDays, targetDay.getDay(), anchorDay.getDay());
+}
+
+// Re-anchors a recurring task's due date onto a projected future occurrence day,
+// preserving its time-of-day (or all-day-ness) so rendering code needs no changes.
+function projectTaskTo(task: Task, target: Date): Task {
+  if (!task.due?.date) return task;
+  const anchor = new Date(task.due.date);
+  if (isSameDay(anchor, target)) return task;
+
+  const hasTime = task.due.date.length > 10;
+  if (!hasTime) {
+    return { ...task, due: { ...task.due, date: target.toLocaleDateString('en-CA') } };
+  }
+  const combined = new Date(
+    target.getFullYear(), target.getMonth(), target.getDate(),
+    anchor.getHours(), anchor.getMinutes(), anchor.getSeconds()
+  );
+  return { ...task, due: { ...task.due, date: combined.toISOString() } };
 }
 
 export default function CalendarPage() {
@@ -179,8 +247,7 @@ export default function CalendarPage() {
 
 
   function tasksForDate(d: Date) {
-    const str = d.toLocaleDateString('en-CA');
-    return tasks.filter(t => t.due?.date?.startsWith(str));
+    return tasks.filter(t => occursOn(t, d)).map(t => projectTaskTo(t, d));
   }
 
   function eventsForDate(d: Date) {
