@@ -176,6 +176,9 @@ export default function CalendarPage() {
   const [editingTask, setEditingTask] = useState<EditingTask | null>(null);
   const [editSaving, setEditSaving] = useState(false);
   const [editCompleting, setEditCompleting] = useState(false);
+  const [addingForDate, setAddingForDate] = useState<Date | null>(null);
+  const [newTask, setNewTask] = useState({ content: '', priority: 1, dueString: '' });
+  const [creating, setCreating] = useState(false);
 
   const today = new Date();
 
@@ -299,6 +302,29 @@ export default function CalendarPage() {
     }
   }
 
+  function openAddTask(date: Date, e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setAddingForDate(date);
+    setNewTask({ content: '', priority: 1, dueString: date.toLocaleDateString('en-CA') });
+  }
+
+  async function createTask() {
+    if (!newTask.content.trim()) return;
+    setCreating(true);
+    try {
+      await fetch('/api/todoist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create', content: newTask.content, priority: newTask.priority, due_string: newTask.dueString }),
+      });
+      setAddingForDate(null);
+      setNewTask({ content: '', priority: 1, dueString: '' });
+      loadCalendarData();
+    } finally {
+      setCreating(false);
+    }
+  }
+
   function openTaskEdit(t: Task, e?: React.MouseEvent) {
     e?.stopPropagation();
     setEditingTask({ id: t.id, content: t.content, priority: t.priority, dueString: t.due?.string ?? '' });
@@ -393,12 +419,21 @@ export default function CalendarPage() {
                         ${isToday ? 'bg-cyan-500 text-white' : 'text-gray-500 dark:text-gray-400 group-hover:text-gray-900 dark:group-hover:text-white'}`}>
                         {dayNum}
                       </div>
-                      {date && forecast[date.toLocaleDateString('en-CA')] && (
-                        <div className="flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 leading-none pt-1.5 shrink-0">
-                          <span className="leading-none">{wxIcon(forecast[date.toLocaleDateString('en-CA')].code)}</span>
-                          <span>{forecast[date.toLocaleDateString('en-CA')].max}°</span>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-0.5 pt-0.5">
+                        {date && forecast[date.toLocaleDateString('en-CA')] && (
+                          <div className="flex items-center gap-0.5 text-[10px] text-gray-400 dark:text-gray-500 leading-none pt-1.5 shrink-0">
+                            <span className="leading-none">{wxIcon(forecast[date.toLocaleDateString('en-CA')].code)}</span>
+                            <span>{forecast[date.toLocaleDateString('en-CA')].max}°</span>
+                          </div>
+                        )}
+                        {date && (
+                          <button
+                            onClick={e => openAddTask(date, e)}
+                            className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded-full text-gray-400 hover:text-violet-500 hover:bg-violet-500/15 transition text-sm leading-none mt-0.5 shrink-0"
+                            title="Add task"
+                          >+</button>
+                        )}
+                      </div>
                     </div>
                     <div className="mt-1 space-y-0.5">
                       {dayEvents.slice(0, 2).map(e => (
@@ -650,7 +685,11 @@ export default function CalendarPage() {
           <div className="mb-4 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl overflow-hidden shadow-sm dark:shadow-none">
             <div className="px-4 pt-3 pb-2.5 flex items-center gap-2 border-b border-gray-100 dark:border-white/[0.06]">
               <span className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-widest">Tasks due today</span>
-              <span className="ml-auto text-[11px] font-semibold text-gray-400 dark:text-gray-500 tabular-nums">{allDayTasks.length}</span>
+              <span className="text-[11px] font-semibold text-gray-400 dark:text-gray-500 tabular-nums">{allDayTasks.length}</span>
+              <button
+                onClick={() => openAddTask(currentDate)}
+                className="ml-auto text-[11px] font-semibold text-violet-500 hover:text-violet-400 hover:bg-violet-500/10 px-2 py-1 rounded-lg transition"
+              >+ New Task</button>
             </div>
             <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
               {allDayTasks.map(t => (
@@ -667,6 +706,14 @@ export default function CalendarPage() {
                 </div>
               ))}
             </div>
+          </div>
+        )}
+        {allDayTasks.length === 0 && (
+          <div className="mb-4 flex justify-end">
+            <button
+              onClick={() => openAddTask(currentDate)}
+              className="text-sm font-semibold text-violet-500 hover:text-violet-400 hover:bg-violet-500/10 px-3 py-1.5 rounded-xl transition border border-violet-500/20"
+            >+ New Task</button>
           </div>
         )}
         <TimeGrid days={[currentDate]} />
@@ -755,6 +802,64 @@ export default function CalendarPage() {
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400 inline-block" /> Medium</span>
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Task</span>
       </div>
+
+      {/* New task modal */}
+      {addingForDate && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setAddingForDate(null)}>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-1 text-gray-900 dark:text-white">New Task</h3>
+            <p className="text-sm text-gray-500 mb-5">
+              {addingForDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
+            </p>
+            <div className="space-y-4">
+              <input
+                type="text"
+                placeholder="What needs to be done?"
+                value={newTask.content}
+                onChange={e => setNewTask({ ...newTask, content: e.target.value })}
+                className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition"
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') createTask(); if (e.key === 'Escape') setAddingForDate(null); }}
+              />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Priority</label>
+                  <select
+                    value={newTask.priority}
+                    onChange={e => setNewTask({ ...newTask, priority: parseInt(e.target.value) })}
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition"
+                  >
+                    <option value={4}>🔴 Urgent</option>
+                    <option value={3}>🟠 High</option>
+                    <option value={2}>🟡 Medium</option>
+                    <option value={1}>⚪ Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Due</label>
+                  <input
+                    type="text"
+                    value={newTask.dueString}
+                    onChange={e => setNewTask({ ...newTask, dueString: e.target.value })}
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setAddingForDate(null)}
+                className="flex-1 py-2.5 border border-gray-200 dark:border-white/10 rounded-xl text-sm font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+              >Cancel</button>
+              <button
+                onClick={createTask}
+                disabled={creating || !newTask.content.trim()}
+                className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 active:scale-95"
+              >{creating ? 'Adding…' : 'Add Task'}</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Task edit modal */}
       {editingTask && (
