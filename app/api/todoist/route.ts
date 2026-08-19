@@ -38,6 +38,19 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: res.ok });
   }
 
+  if (action === 'update') {
+    const body: Record<string, unknown> = {};
+    if (content) body.content = content;
+    if (priority) body.priority = priority;
+    if (due_string) body.due_string = due_string;
+    const res = await fetch(`${BASE}/tasks/${taskId}`, {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify(body),
+    });
+    return NextResponse.json({ ok: res.ok });
+  }
+
   if (action === 'create') {
     const res = await fetch(`${BASE}/tasks`, {
       method: 'POST',

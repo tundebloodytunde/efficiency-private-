@@ -161,6 +161,8 @@ function projectTaskTo(task: Task, target: Date): Task {
   return { ...task, due: { ...task.due, date: combined.toISOString() } };
 }
 
+interface EditingTask { id: string; content: string; priority: number; dueString: string; }
+
 export default function CalendarPage() {
   const [view, setView] = useState<ViewMode>('month');
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -171,6 +173,9 @@ export default function CalendarPage() {
   const [syncMsg, setSyncMsg] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [forecast, setForecast] = useState<Record<string, DayForecast>>({});
+  const [editingTask, setEditingTask] = useState<EditingTask | null>(null);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editCompleting, setEditCompleting] = useState(false);
 
   const today = new Date();
 
@@ -294,6 +299,49 @@ export default function CalendarPage() {
     }
   }
 
+  function openTaskEdit(t: Task, e?: React.MouseEvent) {
+    e?.stopPropagation();
+    setEditingTask({ id: t.id, content: t.content, priority: t.priority, dueString: t.due?.string ?? '' });
+  }
+
+  async function saveTask() {
+    if (!editingTask) return;
+    setEditSaving(true);
+    try {
+      await fetch('/api/todoist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'update',
+          taskId: editingTask.id,
+          content: editingTask.content,
+          priority: editingTask.priority,
+          due_string: editingTask.dueString || undefined,
+        }),
+      });
+      setEditingTask(null);
+      loadCalendarData();
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
+  async function completeEditingTask() {
+    if (!editingTask) return;
+    setEditCompleting(true);
+    try {
+      await fetch('/api/todoist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'complete', taskId: editingTask.id }),
+      });
+      setEditingTask(null);
+      loadCalendarData();
+    } finally {
+      setEditCompleting(false);
+    }
+  }
+
   function navLabel() {
     if (view === 'month') return currentDate.toLocaleString('default', { month: 'long', year: 'numeric' });
     if (view === 'day') return currentDate.toLocaleDateString('default', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' });
@@ -360,7 +408,11 @@ export default function CalendarPage() {
                         </div>
                       ))}
                       {dayTasks.slice(0, 2 - Math.min(dayEvents.length, 2)).map(t => (
-                        <div key={t.id} className={`text-white text-xs rounded px-1.5 py-0.5 truncate font-medium ${priorityColor(t.priority)}`}>
+                        <div
+                          key={t.id}
+                          className={`text-white text-xs rounded px-1.5 py-0.5 truncate font-medium cursor-pointer hover:brightness-110 active:scale-95 transition ${priorityColor(t.priority)}`}
+                          onClick={e => openTaskEdit(t, e)}
+                        >
                           {t.content}
                         </div>
                       ))}
@@ -560,7 +612,7 @@ export default function CalendarPage() {
                         key={t.id}
                         className={`absolute left-1 right-0.5 rounded-xl px-2 py-1 text-[10px] font-semibold text-white border-l-[3px] overflow-hidden cursor-pointer hover:brightness-110 active:scale-[0.98] transition z-10 ${priorityColor(t.priority)} ${priorityBorder(t.priority)}`}
                         style={{ top: `${top}px`, height: '26px' }}
-                        onClick={ev => { ev.stopPropagation(); openDay(d); }}
+                        onClick={ev => openTaskEdit(t, ev)}
                       >
                         <div className="truncate">{t.content}</div>
                       </div>
@@ -602,11 +654,16 @@ export default function CalendarPage() {
             </div>
             <div className="divide-y divide-gray-100 dark:divide-white/[0.06]">
               {allDayTasks.map(t => (
-                <div key={t.id} className={`flex items-center gap-3 pl-3.5 pr-4 py-3 border-l-[3px] ${priorityBorder(t.priority)}`}>
+                <div
+                  key={t.id}
+                  className={`group flex items-center gap-3 pl-3.5 pr-4 py-3 border-l-[3px] cursor-pointer hover:bg-gray-50 dark:hover:bg-white/[0.04] transition ${priorityBorder(t.priority)}`}
+                  onClick={() => openTaskEdit(t)}
+                >
                   <span className="flex-1 text-sm font-medium text-gray-900 dark:text-gray-100 truncate">{t.content}</span>
                   <span className={`text-[10px] font-bold uppercase tracking-widest shrink-0 ${PRIORITY_TEXT[t.priority] ?? 'text-blue-400'}`}>
                     {PRIORITY_LABEL[t.priority] ?? 'Low'}
                   </span>
+                  <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 dark:text-gray-500 transition shrink-0">Edit ›</span>
                 </div>
               ))}
             </div>
@@ -699,6 +756,75 @@ export default function CalendarPage() {
         <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-400 inline-block" /> Task</span>
       </div>
 
+      {/* Task edit modal */}
+      {editingTask && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setEditingTask(null)}>
+          <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-3xl p-8 w-full max-w-md shadow-2xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-xl font-bold mb-5 text-gray-900 dark:text-white">Edit Task</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Task</label>
+                <input
+                  type="text"
+                  value={editingTask.content}
+                  onChange={e => setEditingTask({ ...editingTask, content: e.target.value })}
+                  className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition"
+                  autoFocus
+                  onKeyDown={e => { if (e.key === 'Enter') saveTask(); if (e.key === 'Escape') setEditingTask(null); }}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Priority</label>
+                  <select
+                    value={editingTask.priority}
+                    onChange={e => setEditingTask({ ...editingTask, priority: parseInt(e.target.value) })}
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white focus:outline-none transition"
+                  >
+                    <option value={4}>🔴 Urgent</option>
+                    <option value={3}>🟠 High</option>
+                    <option value={2}>🟡 Medium</option>
+                    <option value={1}>⚪ Low</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1.5 uppercase tracking-wide">Due</label>
+                  <input
+                    type="text"
+                    placeholder="tomorrow, next Mon…"
+                    value={editingTask.dueString}
+                    onChange={e => setEditingTask({ ...editingTask, dueString: e.target.value })}
+                    className="w-full bg-gray-100 dark:bg-white/5 border border-gray-200 dark:border-white/10 focus:border-violet-500 rounded-xl px-4 py-3 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-600 focus:outline-none transition"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2 mt-6">
+              <button
+                onClick={completeEditingTask}
+                disabled={editCompleting || editSaving}
+                className="px-4 py-2.5 bg-green-600/20 border border-green-500/30 text-green-600 dark:text-green-400 hover:bg-green-600/30 rounded-xl text-sm font-semibold transition disabled:opacity-50 active:scale-95"
+              >
+                {editCompleting ? '…' : '✓ Done'}
+              </button>
+              <button
+                onClick={saveTask}
+                disabled={editSaving || editCompleting}
+                className="flex-1 bg-gradient-to-r from-violet-600 to-pink-600 text-white py-2.5 rounded-xl font-semibold hover:opacity-90 transition disabled:opacity-50 active:scale-95"
+              >
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                onClick={() => setEditingTask(null)}
+                className="px-4 py-2.5 border border-gray-200 dark:border-white/10 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white rounded-xl text-sm font-semibold transition"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Day detail modal */}
       {selected && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center z-50 px-4" onClick={() => setSelected(null)}>
@@ -726,11 +852,16 @@ export default function CalendarPage() {
             {selected.tasks.length > 0 && (
               <div>
                 <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Tasks</p>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {selected.tasks.map(t => (
-                    <div key={t.id} className="flex items-center gap-3">
+                    <div
+                      key={t.id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-xl cursor-pointer hover:bg-gray-50 dark:hover:bg-white/5 transition group"
+                      onClick={e => { e.stopPropagation(); setSelected(null); openTaskEdit(t); }}
+                    >
                       <div className={`w-2 h-2 rounded-full shrink-0 ${priorityColor(t.priority)}`} />
-                      <span className="text-gray-800 dark:text-gray-200">{t.content}</span>
+                      <span className="flex-1 text-gray-800 dark:text-gray-200">{t.content}</span>
+                      <span className="opacity-0 group-hover:opacity-100 text-xs text-gray-400 transition">Edit ›</span>
                     </div>
                   ))}
                 </div>
