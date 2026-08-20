@@ -65,7 +65,15 @@ export default function TodayPage() {
   const [news, setNews] = useState<NewsRoundup | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState('');
+  const [toast, setToast] = useState('');
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snoozeRef = useRef<HTMLDivElement>(null);
+
+  function showToast(msg: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(''), 3000);
+  }
 
   // Use ET timezone so the date label matches the task-filter timezone
   const dateLabel = new Date().toLocaleDateString('en-US', {
@@ -248,6 +256,7 @@ export default function TodayPage() {
       setNews(data);
       localStorage.setItem(`newsRoundup-${todayKey()}`, JSON.stringify(data));
       fireNewsReady();
+      showToast('📰 News roundup updated');
     } catch {
       setNewsError('Could not load news. Tap Retry to try again.');
     } finally {
@@ -806,6 +815,15 @@ export default function TodayPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+          <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl animate-fade-in-up">
+            {toast}
           </div>
         </div>
       )}
