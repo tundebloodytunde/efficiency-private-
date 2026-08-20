@@ -4,9 +4,10 @@ import Anthropic from '@anthropic-ai/sdk';
 export const dynamic = 'force-dynamic';
 
 const RSS_FEEDS = [
-  { name: 'Reuters', url: 'https://feeds.reuters.com/reuters/topNews' },
   { name: 'BBC World', url: 'https://feeds.bbci.co.uk/news/world/rss.xml' },
-  { name: 'AP News', url: 'https://feeds.apnews.com/rss/apf-topnews' },
+  { name: 'NPR News', url: 'https://feeds.npr.org/1001/rss.xml' },
+  { name: 'NY Times', url: 'https://rss.nytimes.com/services/xml/rss/nyt/HomePage.xml' },
+  { name: 'The Guardian', url: 'https://www.theguardian.com/world/rss' },
 ];
 
 function extractItems(xml: string): { title: string; description: string }[] {
