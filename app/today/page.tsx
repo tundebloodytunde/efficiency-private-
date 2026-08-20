@@ -48,6 +48,9 @@ export default function TodayPage() {
   const [habits, setHabits] = useState<Habit[]>([]);
   const [habitDoneIds, setHabitDoneIds] = useState<Set<string>>(new Set());
   const [notifPerm, setNotifPerm] = useState<NotifPermission>('default');
+  const [swipe, setSwipe] = useState<{ id: string; startX: number; startY: number; deltaX: number; locked: boolean } | null>(null);
+  const [sessionCompletions, setSessionCompletions] = useState<{ id: string; content: string; priority: number }[]>([]);
+  const [showCompleted, setShowCompleted] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState('');
   const [brief, setBrief] = useState('');
@@ -165,7 +168,32 @@ export default function TodayPage() {
     return () => document.removeEventListener('mousedown', handleClick);
   }, []);
 
+  function onSwipeStart(e: React.TouchEvent, id: string) {
+    setSwipe({ id, startX: e.touches[0].clientX, startY: e.touches[0].clientY, deltaX: 0, locked: false });
+  }
+
+  function onSwipeMove(e: React.TouchEvent, id: string) {
+    if (!swipe || swipe.id !== id) return;
+    const dx = e.touches[0].clientX - swipe.startX;
+    const dy = e.touches[0].clientY - swipe.startY;
+    if (!swipe.locked) {
+      if (Math.abs(dy) > Math.abs(dx) + 8) { setSwipe(null); return; }
+      if (Math.abs(dx) > 12) setSwipe(s => s ? { ...s, locked: true, deltaX: dx } : null);
+      return;
+    }
+    setSwipe(s => s ? { ...s, deltaX: dx } : null);
+  }
+
+  function onSwipeEnd(e: React.TouchEvent, id: string) {
+    if (!swipe || swipe.id !== id) { setSwipe(null); return; }
+    const delta = swipe.deltaX;
+    setSwipe(null);
+    if (delta > 80) markDone(id);
+    else if (delta < -80) snoozeTask(id, 'tomorrow');
+  }
+
   async function markDone(taskId: string) {
+    const taskObj = [...tasks, ...overdueTasks].find(t => t.id === taskId);
     setCompleting(prev => new Set([...prev, taskId]));
     const [res] = await Promise.all([
       fetch('/api/todoist', {
@@ -177,7 +205,9 @@ export default function TodayPage() {
     ]);
     if (res.ok) {
       setTasks(prev => prev.filter(t => t.id !== taskId));
+      setOverdueTasks(prev => prev.filter(t => t.id !== taskId));
       setCompletedCount(c => c + 1);
+      if (taskObj) setSessionCompletions(prev => [{ id: taskObj.id, content: taskObj.content, priority: taskObj.priority }, ...prev]);
     }
     setCompleting(prev => { const s = new Set(prev); s.delete(taskId); return s; });
   }
@@ -556,10 +586,25 @@ export default function TodayPage() {
             {overdueTasks.map(task => {
               const p = PRIORITY[task.priority] ?? PRIORITY[1];
               const isCompleting = completing.has(task.id);
+              const swipingThis = swipe?.id === task.id && swipe.locked;
               return (
+                <div key={task.id} className="relative rounded-2xl overflow-hidden">
+                  <div className={`absolute inset-0 rounded-2xl bg-green-500 flex items-center pl-5 transition-opacity duration-100 ${swipingThis && swipe.deltaX > 20 ? 'opacity-100' : 'opacity-0'}`}>
+                    <span className="text-white font-bold text-sm">✓ Done</span>
+                  </div>
+                  <div className={`absolute inset-0 rounded-2xl bg-blue-500 flex items-center justify-end pr-5 transition-opacity duration-100 ${swipingThis && swipe.deltaX < -20 ? 'opacity-100' : 'opacity-0'}`}>
+                    <span className="text-white font-bold text-sm">Tomorrow</span>
+                  </div>
                 <div
-                  key={task.id}
-                  className={`group relative bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl pl-4 pr-5 py-3.5 flex justify-between items-center transition-all overflow-hidden ${isCompleting ? 'task-completing' : ''}`}
+                  className={`group relative bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl pl-4 pr-5 py-3.5 flex justify-between items-center transition-colors overflow-hidden ${isCompleting ? 'task-completing' : ''}`}
+                  style={{
+                    transform: swipingThis ? `translateX(${Math.max(-120, Math.min(120, swipe.deltaX))}px)` : undefined,
+                    transition: swipe?.id === task.id ? 'transform 0s' : 'transform 0.3s ease-out',
+                    touchAction: 'pan-y',
+                  }}
+                  onTouchStart={e => onSwipeStart(e, task.id)}
+                  onTouchMove={e => onSwipeMove(e, task.id)}
+                  onTouchEnd={e => onSwipeEnd(e, task.id)}
                 >
                   <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full bg-red-500 opacity-70`} />
                   <div className="flex-1 min-w-0 mr-4 ml-2">
@@ -605,6 +650,7 @@ export default function TodayPage() {
                     </button>
                   </div>
                 </div>
+                </div>
               );
             })}
           </div>
@@ -627,10 +673,25 @@ export default function TodayPage() {
           tasks.map(task => {
             const p = PRIORITY[task.priority] ?? PRIORITY[1];
             const isCompleting = completing.has(task.id);
+            const swipingThis = swipe?.id === task.id && swipe.locked;
             return (
+              <div key={task.id} className="relative rounded-2xl overflow-hidden shadow-sm hover:shadow dark:shadow-none">
+                <div className={`absolute inset-0 rounded-2xl bg-green-500 flex items-center pl-5 transition-opacity duration-100 ${swipingThis && swipe.deltaX > 20 ? 'opacity-100' : 'opacity-0'}`}>
+                  <span className="text-white font-bold text-sm">✓ Done</span>
+                </div>
+                <div className={`absolute inset-0 rounded-2xl bg-blue-500 flex items-center justify-end pr-5 transition-opacity duration-100 ${swipingThis && swipe.deltaX < -20 ? 'opacity-100' : 'opacity-0'}`}>
+                  <span className="text-white font-bold text-sm">Tomorrow</span>
+                </div>
               <div
-                key={task.id}
-                className={`group relative bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl pl-4 pr-5 py-4 flex justify-between items-center transition-all overflow-hidden shadow-sm hover:shadow dark:shadow-none ${isCompleting ? 'task-completing' : ''}`}
+                className={`group relative bg-gray-100 dark:bg-white/5 hover:bg-gray-200 dark:hover:bg-white/10 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 rounded-2xl pl-4 pr-5 py-4 flex justify-between items-center transition-colors overflow-hidden ${isCompleting ? 'task-completing' : ''}`}
+                style={{
+                  transform: swipingThis ? `translateX(${Math.max(-120, Math.min(120, swipe.deltaX))}px)` : undefined,
+                  transition: swipe?.id === task.id ? 'transform 0s' : 'transform 0.3s ease-out',
+                  touchAction: 'pan-y',
+                }}
+                onTouchStart={e => onSwipeStart(e, task.id)}
+                onTouchMove={e => onSwipeMove(e, task.id)}
+                onTouchEnd={e => onSwipeEnd(e, task.id)}
               >
                 {/* Priority accent bar */}
                 <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full ${p.bar} opacity-60`} />
@@ -696,10 +757,35 @@ export default function TodayPage() {
                   </button>
                 </div>
               </div>
+              </div>
             );
           })
         )}
       </div>
+
+      {/* Completed This Session */}
+      {sessionCompletions.length > 0 && (
+        <div className="mt-4">
+          <button
+            onClick={() => setShowCompleted(c => !c)}
+            className="flex items-center gap-2 w-full py-2 text-sm text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition"
+          >
+            <span className="w-5 h-5 bg-green-500/20 dark:bg-green-500/15 rounded-full flex items-center justify-center text-green-600 dark:text-green-400 text-xs font-bold shrink-0">✓</span>
+            <span className="font-semibold">{sessionCompletions.length} completed today</span>
+            <span className="ml-auto text-xs">{showCompleted ? '▲' : '▼'}</span>
+          </button>
+          {showCompleted && (
+            <div className="space-y-1.5 mt-2">
+              {sessionCompletions.map(t => (
+                <div key={t.id} className="flex items-center gap-3 px-4 py-2.5 rounded-xl bg-gray-50 dark:bg-white/3 border border-gray-100 dark:border-white/5">
+                  <span className="w-5 h-5 bg-green-500 rounded-full flex items-center justify-center text-white text-xs shrink-0">✓</span>
+                  <span className="text-sm text-gray-400 dark:text-gray-500 line-through">{t.content}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Today's Notes */}
       {notes.length > 0 && (
