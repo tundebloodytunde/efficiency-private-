@@ -480,8 +480,12 @@ export default function CalendarPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    const hasAllDayContent = days.some(d => eventsForDate(d).some(e => e.allDay)) ||
+      (inWeekView && days.some(d => tasksForDate(d).some(t => t.due?.date && t.due.date.length === 10)));
+
     return (
-      <div className="bg-white dark:bg-gray-950 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden shadow-sm dark:shadow-none">
+      <div className={inWeekView ? 'overflow-x-auto' : ''}>
+      <div className={`bg-white dark:bg-gray-950 border border-gray-200 dark:border-white/10 rounded-3xl overflow-hidden shadow-sm dark:shadow-none${inWeekView ? ' min-w-[640px]' : ''}`}>
         {/* Header row */}
         <div className="grid border-b border-gray-200 dark:border-white/10" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
           <div />
@@ -533,20 +537,32 @@ export default function CalendarPage() {
         </div>
 
         {/* All-day row */}
-        {days.some(d => eventsForDate(d).some(e => e.allDay)) && (
+        {hasAllDayContent && (
           <div className="grid border-b border-gray-200 dark:border-white/10 min-h-[34px]" style={{ gridTemplateColumns: `56px repeat(${days.length}, 1fr)` }}>
             <div className="text-[10px] font-semibold text-gray-400 dark:text-gray-600 flex items-center justify-end pr-2 py-1.5 uppercase tracking-widest">
               all‑day
             </div>
-            {days.map((d, i) => (
-              <div key={i} className={`border-l border-gray-200 dark:border-white/10 px-1 py-1 space-y-0.5 ${isSameDay(d, today) && inWeekView ? 'bg-cyan-50 dark:bg-cyan-500/[0.07]' : ''}`}>
-                {eventsForDate(d).filter(e => e.allDay).map(e => (
-                  <div key={e.id} className={`text-xs px-2 py-0.5 rounded-md font-semibold truncate ${chipBg(e.source)}`}>
-                    {e.title}
-                  </div>
-                ))}
-              </div>
-            ))}
+            {days.map((d, i) => {
+              const allDayTasks = inWeekView ? tasksForDate(d).filter(t => t.due?.date && t.due.date.length === 10) : [];
+              return (
+                <div key={i} className={`border-l border-gray-200 dark:border-white/10 px-1 py-1 space-y-0.5 ${isSameDay(d, today) && inWeekView ? 'bg-cyan-50 dark:bg-cyan-500/[0.07]' : ''}`}>
+                  {eventsForDate(d).filter(e => e.allDay).map(e => (
+                    <div key={e.id} className={`text-xs px-2 py-0.5 rounded-md font-semibold truncate ${chipBg(e.source)}`}>
+                      {e.title}
+                    </div>
+                  ))}
+                  {allDayTasks.map(t => (
+                    <div
+                      key={t.id}
+                      className={`text-white text-xs px-2 py-0.5 rounded-md font-semibold truncate cursor-pointer hover:brightness-110 active:scale-95 transition ${priorityColor(t.priority)}`}
+                      onClick={ev => openTaskEdit(t, ev as unknown as React.MouseEvent)}
+                    >
+                      {t.content}
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -658,6 +674,7 @@ export default function CalendarPage() {
             })}
           </div>
         </div>
+      </div>
       </div>
     );
   }
