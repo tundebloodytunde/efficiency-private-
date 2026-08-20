@@ -171,6 +171,7 @@ export default function QuickCapture() {
     }
     setSaved(true);
     setContent(''); setPriority(1); setDue(''); setDueTime('');
+    window.dispatchEvent(new CustomEvent('taskCreated'));
     setTimeout(() => { setSaved(false); setOpen(false); }, 800);
   }
 
