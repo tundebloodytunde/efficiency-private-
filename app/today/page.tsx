@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
+import { getHabits, getCompletedForDate, toggleHabit, getStreak, getTodayHabitStr, Habit } from '@/lib/habits';
+import { notifPermission, requestPermission, scheduleTaskNotifications, scheduleMorningReminder, clearAllNotifications, NotifPermission } from '@/lib/notifications';
 import WeatherWidget from '@/components/WeatherWidget';
 
 interface NewsStory { headline: string; brief: string; }
@@ -18,7 +20,7 @@ interface Task {
   id: string;
   content: string;
   priority: number;
-  due?: { date: string; string: string } | null;
+  due?: { date: string; string: string; datetime?: string } | null;
   labels: string[];
   description: string;
 }
@@ -43,6 +45,9 @@ export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [overdueTasks, setOverdueTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
+  const [habits, setHabits] = useState<Habit[]>([]);
+  const [habitDoneIds, setHabitDoneIds] = useState<Set<string>>(new Set());
+  const [notifPerm, setNotifPerm] = useState<NotifPermission>('default');
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState('');
   const [brief, setBrief] = useState('');
@@ -79,6 +84,8 @@ export default function TodayPage() {
       const overdue = all.filter((t) => t.due?.date && t.due.date < todayStr);
       setTasks(filtered);
       setOverdueTasks(overdue);
+      scheduleTaskNotifications(filtered);
+      scheduleMorningReminder(filtered.length);
       if (!silent) { setInitialCount(filtered.length); setCompletedCount(0); }
     } catch {
       setTasks([]);
@@ -89,6 +96,17 @@ export default function TodayPage() {
 
   function loadNotes() {
     setNotes(getNotesForDate(getTodayString()));
+  }
+
+  function loadHabits() {
+    const h = getHabits();
+    setHabits(h);
+    setHabitDoneIds(getCompletedForDate(getTodayHabitStr()));
+  }
+
+  function toggleHabitInToday(habitId: string) {
+    toggleHabit(habitId, getTodayHabitStr());
+    setHabitDoneIds(getCompletedForDate(getTodayHabitStr()));
   }
 
   // Restore cached brief, triage, and news for today
@@ -111,6 +129,8 @@ export default function TodayPage() {
   useEffect(() => {
     loadTasks();
     loadNotes();
+    loadHabits();
+    setNotifPerm(notifPermission());
     function onVisible() { if (document.visibilityState === 'visible') loadTasks(true); }
     function onTaskCreated() { loadTasks(true); }
     window.addEventListener('notesUpdated', loadNotes);
@@ -122,6 +142,7 @@ export default function TodayPage() {
       window.removeEventListener('taskCreated', onTaskCreated);
       document.removeEventListener('visibilitychange', onVisible);
       clearInterval(poll);
+      clearAllNotifications();
     };
   }, []);
 
@@ -228,6 +249,15 @@ export default function TodayPage() {
       setBriefError('Could not connect. Tap Retry to try again.');
     } finally {
       setBriefLoading(false);
+    }
+  }
+
+  async function enableNotifications() {
+    const perm = await requestPermission();
+    setNotifPerm(perm);
+    if (perm === 'granted') {
+      scheduleTaskNotifications(tasks);
+      scheduleMorningReminder(tasks.length);
     }
   }
 
@@ -446,6 +476,73 @@ export default function TodayPage() {
           </div>
         )}
       </div>
+
+      {/* Notification Permission Banner */}
+      {notifPerm === 'default' && (
+        <div className="rounded-2xl px-5 py-4 mb-4 bg-violet-500/10 border border-violet-500/20 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <span className="text-xl shrink-0">🔔</span>
+            <p className="text-sm text-gray-700 dark:text-gray-300 leading-snug">
+              Enable notifications to get reminders when tasks are due.
+            </p>
+          </div>
+          <button
+            onClick={enableNotifications}
+            className="shrink-0 text-sm bg-violet-600 hover:bg-violet-500 text-white px-4 py-2 rounded-xl font-semibold transition active:scale-95"
+          >
+            Enable
+          </button>
+        </div>
+      )}
+
+      {/* Habits */}
+      {habits.length > 0 && (
+        <div className="rounded-3xl p-6 mb-6 bg-gradient-to-br from-orange-500/10 to-pink-500/10 border border-orange-500/20 backdrop-blur">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🔄</span>
+              <h2 className="font-bold text-gray-900 dark:text-white">Habits</h2>
+              <span className="text-xs text-gray-400 font-medium ml-1">{habitDoneIds.size}/{habits.length}</span>
+            </div>
+            <a href="/habits" className="text-xs text-orange-500 hover:text-orange-400 font-semibold transition">
+              Manage →
+            </a>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {habits.map(habit => {
+              const done = habitDoneIds.has(habit.id);
+              const streak = getStreak(habit.id);
+              return (
+                <button
+                  key={habit.id}
+                  onClick={() => toggleHabitInToday(habit.id)}
+                  className={`flex items-center gap-3 px-4 py-3 rounded-2xl border transition-all active:scale-95 text-left ${
+                    done
+                      ? 'bg-green-500/15 border-green-500/30 dark:bg-green-500/15 dark:border-green-500/30'
+                      : 'bg-white/50 dark:bg-white/5 border-gray-200 dark:border-white/10 hover:border-orange-300 dark:hover:border-orange-500/30'
+                  }`}
+                >
+                  <span className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-base shrink-0 transition-all ${
+                    done
+                      ? 'bg-green-500 border-green-500 text-white text-sm'
+                      : 'border-gray-300 dark:border-white/30 text-gray-700 dark:text-white'
+                  }`}>
+                    {done ? '✓' : habit.emoji}
+                  </span>
+                  <div className="min-w-0">
+                    <p className={`text-sm font-semibold truncate leading-tight ${done ? 'text-green-700 dark:text-green-400' : 'text-gray-900 dark:text-white'}`}>
+                      {habit.name}
+                    </p>
+                    {streak > 0 && (
+                      <p className="text-xs text-orange-500 font-bold mt-0.5">🔥 {streak}</p>
+                    )}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Overdue Tasks */}
       {overdueTasks.length > 0 && (
