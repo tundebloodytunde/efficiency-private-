@@ -41,6 +41,7 @@ const todayKey = () => new Date().toLocaleDateString('en-CA');
 
 export default function TodayPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [overdueTasks, setOverdueTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [formError, setFormError] = useState('');
@@ -73,8 +74,11 @@ export default function TodayPage() {
       const res = await fetch('/api/todoist');
       const data = await res.json();
       const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      const filtered = Array.isArray(data) ? data.filter((t: Task) => t.due?.date?.startsWith(todayStr)) : [];
+      const all: Task[] = Array.isArray(data) ? data : [];
+      const filtered = all.filter((t) => t.due?.date?.startsWith(todayStr));
+      const overdue = all.filter((t) => t.due?.date && t.due.date < todayStr);
       setTasks(filtered);
+      setOverdueTasks(overdue);
       if (!silent) { setInitialCount(filtered.length); setCompletedCount(0); }
     } catch {
       setTasks([]);
@@ -108,11 +112,14 @@ export default function TodayPage() {
     loadTasks();
     loadNotes();
     function onVisible() { if (document.visibilityState === 'visible') loadTasks(true); }
+    function onTaskCreated() { loadTasks(true); }
     window.addEventListener('notesUpdated', loadNotes);
+    window.addEventListener('taskCreated', onTaskCreated);
     document.addEventListener('visibilitychange', onVisible);
     const poll = setInterval(() => loadTasks(true), 5 * 60 * 1000);
     return () => {
       window.removeEventListener('notesUpdated', loadNotes);
+      window.removeEventListener('taskCreated', onTaskCreated);
       document.removeEventListener('visibilitychange', onVisible);
       clearInterval(poll);
     };
@@ -439,6 +446,73 @@ export default function TodayPage() {
           </div>
         )}
       </div>
+
+      {/* Overdue Tasks */}
+      {overdueTasks.length > 0 && (
+        <div className="mb-6">
+          <div className="flex items-center gap-2 mb-3">
+            <span className="text-base">🚨</span>
+            <h2 className="text-sm font-bold text-red-600 dark:text-red-400 uppercase tracking-wide">Overdue</h2>
+            <span className="ml-1 bg-red-500 text-white text-xs font-bold px-2 py-0.5 rounded-full">{overdueTasks.length}</span>
+          </div>
+          <div className="space-y-2">
+            {overdueTasks.map(task => {
+              const p = PRIORITY[task.priority] ?? PRIORITY[1];
+              const isCompleting = completing.has(task.id);
+              return (
+                <div
+                  key={task.id}
+                  className={`group relative bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 rounded-2xl pl-4 pr-5 py-3.5 flex justify-between items-center transition-all overflow-hidden ${isCompleting ? 'task-completing' : ''}`}
+                >
+                  <div className={`absolute left-0 top-2 bottom-2 w-1 rounded-full bg-red-500 opacity-70`} />
+                  <div className="flex-1 min-w-0 mr-4 ml-2">
+                    <div className={`font-semibold text-gray-900 dark:text-white transition-all ${isCompleting ? 'line-through opacity-40' : ''}`}>
+                      {task.content}
+                    </div>
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.bg}`}>{p.label}</span>
+                      {task.due && (
+                        <span className="text-xs text-red-500 dark:text-red-400 font-medium">Due {task.due.string}</span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      onClick={() => setSnoozeOpen(snoozeOpen === task.id ? null : task.id)}
+                      className="opacity-0 group-hover:opacity-100 w-8 h-8 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-500 text-sm flex items-center justify-center hover:bg-blue-500/20 transition-all"
+                      title="Reschedule"
+                    >
+                      📅
+                    </button>
+                    {snoozeOpen === task.id && (
+                      <div className="absolute right-14 top-2 z-50 bg-white dark:bg-gray-900 border border-gray-200 dark:border-white/10 rounded-2xl shadow-xl p-2 min-w-[140px]">
+                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest px-2 pb-1">Reschedule to</p>
+                        {SNOOZE_OPTIONS.map(opt => (
+                          <button
+                            key={opt.due}
+                            onClick={() => snoozeTask(task.id, opt.due)}
+                            className="w-full text-left px-3 py-2 text-sm rounded-xl text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-white/10 transition font-medium"
+                          >
+                            {opt.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={() => markDone(task.id)}
+                      disabled={isCompleting}
+                      className="w-8 h-8 rounded-full border-2 border-red-300 dark:border-red-500/40 group-hover:border-green-500 hover:bg-green-500 transition-all flex items-center justify-center text-transparent hover:text-white text-sm active:scale-90 disabled:cursor-not-allowed"
+                      aria-label="Mark done"
+                    >
+                      ✓
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Task List */}
       <div className="space-y-3" ref={snoozeRef}>
