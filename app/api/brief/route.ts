@@ -41,6 +41,8 @@ function parseICSForToday(ics: string, todayStr: string) {
   return events;
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function POST() {
   if (!process.env.ANTHROPIC_API_KEY) {
     return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 });
@@ -49,33 +51,44 @@ export async function POST() {
   const today = new Date();
   const todayStr = today.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }); // YYYY-MM-DD in ET
 
-  // Fetch Todoist tasks due today
-  const todoistRes = await fetch('https://api.todoist.com/api/v1/tasks?limit=50', {
-    headers: { Authorization: `Bearer ${process.env.TODOIST_API_TOKEN}` },
-  });
-  const { results: allTasks } = todoistRes.ok ? await todoistRes.json() : { results: [] };
-  const tasks = (allTasks ?? []).filter((t: { due?: { date: string } }) => t.due?.date?.startsWith(todayStr));
+  // Fetch Todoist tasks due today (with a hard timeout)
+  let tasks: { content: string; priority: number }[] = [];
+  try {
+    const todoistRes = await fetch('https://api.todoist.com/api/v1/tasks?limit=200', {
+      headers: { Authorization: `Bearer ${process.env.TODOIST_API_TOKEN}` },
+      signal: AbortSignal.timeout(8000),
+    });
+    const data = todoistRes.ok ? await todoistRes.json() : {};
+    const allTasks: { content: string; priority: number; due?: { date: string } }[] = data.results ?? [];
+    tasks = allTasks.filter(t => t.due?.date?.startsWith(todayStr));
+  } catch {
+    // Todoist unavailable — proceed with calendar only
+  }
 
-  // Fetch iCloud calendar events for today
+  // Fetch iCloud calendar events for today (capped at 12 s to avoid function timeout)
   let calendarEvents: { title: string; time: string }[] = [];
   try {
-    const client = await createDAVClient({
-      serverUrl: 'https://caldav.icloud.com',
-      credentials: { username: process.env.ICLOUD_USERNAME!, password: process.env.ICLOUD_APP_PASSWORD! },
-      authMethod: 'Basic',
-      defaultAccountType: 'caldav',
-    });
-    const calendars = await client.fetchCalendars();
-    const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
-    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
-    for (const calendar of calendars) {
-      const objects = await client.fetchCalendarObjects({ calendar, timeRange: { start, end } });
-      for (const obj of objects) {
-        calendarEvents = calendarEvents.concat(parseICSForToday(obj.data, todayStr));
+    const calPromise = (async () => {
+      const client = await createDAVClient({
+        serverUrl: 'https://caldav.icloud.com',
+        credentials: { username: process.env.ICLOUD_USERNAME!, password: process.env.ICLOUD_APP_PASSWORD! },
+        authMethod: 'Basic',
+        defaultAccountType: 'caldav',
+      });
+      const calendars = await client.fetchCalendars();
+      const start = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString();
+      const end = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1).toISOString();
+      const result: { title: string; time: string }[] = [];
+      for (const calendar of calendars) {
+        const objects = await client.fetchCalendarObjects({ calendar, timeRange: { start, end } });
+        for (const obj of objects) result.push(...parseICSForToday(obj.data, todayStr));
       }
-    }
+      return result;
+    })();
+    const timeout = new Promise<never>((_, reject) => setTimeout(() => reject(new Error('timeout')), 12000));
+    calendarEvents = await Promise.race([calPromise, timeout]);
   } catch {
-    // Calendar unavailable — proceed with tasks only
+    // Calendar unavailable or timed out — proceed with tasks only
   }
 
   const priorityLabel = (p: number) => ({ 4: 'Urgent', 3: 'High', 2: 'Medium', 1: 'Low' }[p] ?? 'Low');
