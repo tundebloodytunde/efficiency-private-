@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 import { getHabits, getCompletedForDate, toggleHabit, getStreak, getTodayHabitStr, Habit } from '@/lib/habits';
-import { notifPermission, requestPermission, scheduleTaskNotifications, scheduleMorningReminder, clearAllNotifications, NotifPermission } from '@/lib/notifications';
+import { notifPermission, requestPermission, scheduleTaskNotifications, scheduleMorningReminder, clearAllNotifications, fireNewsReady, NotifPermission } from '@/lib/notifications';
 import WeatherWidget from '@/components/WeatherWidget';
 
 interface NewsStory { headline: string; brief: string; }
@@ -247,6 +247,7 @@ export default function TodayPage() {
       if (data.error) { setNewsError(data.error); return; }
       setNews(data);
       localStorage.setItem(`newsRoundup-${todayKey()}`, JSON.stringify(data));
+      fireNewsReady();
     } catch {
       setNewsError('Could not load news. Tap Retry to try again.');
     } finally {
