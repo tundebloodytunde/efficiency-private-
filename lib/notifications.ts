@@ -1,5 +1,6 @@
 const todayKey = () => new Date().toLocaleDateString('en-CA');
 const MORNING_KEY = (d: string) => `notif-morning-${d}`;
+const NEWS_KEY    = (d: string) => `notif-news-${d}`;
 
 export type NotifPermission = 'granted' | 'denied' | 'default' | 'unsupported';
 
@@ -52,6 +53,14 @@ export function scheduleTaskNotifications(tasks: DueTask[]) {
     const id = setTimeout(() => fire('Task due now', task.content, `task-${task.id}`), delay);
     taskTimers.set(task.id, id);
   }
+}
+
+export function fireNewsReady() {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return;
+  const key = NEWS_KEY(todayKey());
+  if (localStorage.getItem(key)) return;
+  localStorage.setItem(key, '1');
+  fire('📰 News ready', "Today's roundup has been updated.", 'news-ready');
 }
 
 export function scheduleMorningReminder(taskCount: number) {

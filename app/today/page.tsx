@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { getNotesForDate, deleteNote, getTodayString, Note } from '@/lib/notes';
 import { getHabits, getCompletedForDate, toggleHabit, getStreak, getTodayHabitStr, Habit } from '@/lib/habits';
-import { notifPermission, requestPermission, scheduleTaskNotifications, scheduleMorningReminder, clearAllNotifications, NotifPermission } from '@/lib/notifications';
+import { notifPermission, requestPermission, scheduleTaskNotifications, scheduleMorningReminder, clearAllNotifications, fireNewsReady, NotifPermission } from '@/lib/notifications';
 import WeatherWidget from '@/components/WeatherWidget';
 
 interface NewsStory { headline: string; brief: string; }
@@ -65,7 +65,16 @@ export default function TodayPage() {
   const [news, setNews] = useState<NewsRoundup | null>(null);
   const [newsLoading, setNewsLoading] = useState(false);
   const [newsError, setNewsError] = useState('');
+  const [taskError, setTaskError] = useState('');
+  const [toast, setToast] = useState('');
+  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const snoozeRef = useRef<HTMLDivElement>(null);
+
+  function showToast(msg: string) {
+    if (toastTimer.current) clearTimeout(toastTimer.current);
+    setToast(msg);
+    toastTimer.current = setTimeout(() => setToast(''), 3000);
+  }
 
   // Use ET timezone so the date label matches the task-filter timezone
   const dateLabel = new Date().toLocaleDateString('en-US', {
@@ -78,16 +87,24 @@ export default function TodayPage() {
     try {
       const res = await fetch('/api/todoist');
       const data = await res.json();
-      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-      const all: Task[] = Array.isArray(data) ? data : [];
-      const filtered = all.filter((t) => t.due?.date?.startsWith(todayStr));
-      const overdue = all.filter((t) => t.due?.date && t.due.date < todayStr);
-      setTasks(filtered);
-      setOverdueTasks(overdue);
-      scheduleTaskNotifications(filtered);
-      scheduleMorningReminder(filtered.length);
-      if (!silent) { setInitialCount(filtered.length); setCompletedCount(0); }
+      if (!res.ok || data.error) {
+        setTaskError('Could not load tasks — check your Todoist connection.');
+        setTasks([]);
+        setOverdueTasks([]);
+      } else {
+        const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
+        const all: Task[] = Array.isArray(data) ? data : [];
+        const filtered = all.filter((t) => t.due?.date?.startsWith(todayStr));
+        const overdue = all.filter((t) => t.due?.date && t.due.date < todayStr);
+        setTaskError('');
+        setTasks(filtered);
+        setOverdueTasks(overdue);
+        scheduleTaskNotifications(filtered);
+        scheduleMorningReminder(filtered.length);
+        if (!silent) { setInitialCount(filtered.length); setCompletedCount(0); }
+      }
     } catch {
+      setTaskError('Could not load tasks — check your Todoist connection.');
       setTasks([]);
     }
     setLoading(false);
@@ -244,9 +261,11 @@ export default function TodayPage() {
     try {
       const res = await fetch('/api/news', { method: 'POST' });
       const data = await res.json();
-      if (data.error) { setNewsError(data.error); return; }
+      if (!res.ok || data.error) { setNewsError(data.error ?? 'Could not load news. Tap Retry to try again.'); return; }
       setNews(data);
       localStorage.setItem(`newsRoundup-${todayKey()}`, JSON.stringify(data));
+      fireNewsReady();
+      showToast('📰 News roundup updated');
     } catch {
       setNewsError('Could not load news. Tap Retry to try again.');
     } finally {
@@ -372,7 +391,10 @@ export default function TodayPage() {
             <p className="text-gray-500 text-sm">Fetching today&apos;s headlines...</p>
           </div>
         ) : newsError ? (
-          <p className="text-red-500 text-sm">{newsError}</p>
+          <div className="flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-xl px-4 py-3">
+            <span className="text-base">⚠️</span>
+            <p className="text-sm text-red-700 dark:text-red-400 flex-1">{newsError}</p>
+          </div>
         ) : news ? (
           <div className="space-y-3">
             {news.intro && (
@@ -514,6 +536,17 @@ export default function TodayPage() {
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Task error banner */}
+      {taskError && (
+        <div className="mb-4 flex items-center gap-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-2xl px-4 py-3">
+          <span className="text-lg">⚠️</span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-red-700 dark:text-red-400">{taskError}</p>
+          </div>
+          <button onClick={() => loadTasks()} className="text-xs font-bold text-red-600 dark:text-red-400 underline underline-offset-2 whitespace-nowrap">Retry</button>
         </div>
       )}
 
@@ -805,6 +838,15 @@ export default function TodayPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 pointer-events-none">
+          <div className="bg-gray-900 dark:bg-white text-white dark:text-gray-900 text-sm font-semibold px-5 py-3 rounded-2xl shadow-xl animate-fade-in-up">
+            {toast}
           </div>
         </div>
       )}
