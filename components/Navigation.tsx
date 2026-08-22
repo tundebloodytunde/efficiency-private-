@@ -12,6 +12,10 @@ const links = [
   { href: '/review',   label: 'Review',   icon: '📋' },
 ];
 
+const externalLinks = [
+  { href: '/tools/endograft-planner.html', label: 'Planner', icon: '🫀' },
+];
+
 export default function Navigation() {
   const pathname = usePathname();
   const [darkMode, setDarkMode] = useState(true);
@@ -52,6 +56,15 @@ export default function Navigation() {
               >
                 {label}
               </Link>
+            ))}
+            {externalLinks.map(({ href, label }) => (
+              <a
+                key={href}
+                href={href}
+                className="px-4 py-2 rounded-xl text-sm font-semibold transition-all text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5"
+              >
+                {label}
+              </a>
             ))}
             <button
               onClick={toggleDarkMode}
@@ -100,6 +113,20 @@ export default function Navigation() {
               </Link>
             );
           })}
+          {externalLinks.map(({ href, label, icon }) => (
+            <a
+              key={href}
+              href={href}
+              className="flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-all"
+            >
+              <span className="flex flex-col items-center gap-0.5 px-3 py-1.5 rounded-2xl transition-all">
+                <span className="text-xl leading-none">{icon}</span>
+                <span className="text-[10px] font-bold tracking-wide text-gray-400 dark:text-gray-500">
+                  {label}
+                </span>
+              </span>
+            </a>
+          ))}
         </div>
       </div>
     </>
